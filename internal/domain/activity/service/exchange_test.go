@@ -9,6 +9,7 @@ import (
 
 	"bm-go/internal/domain/activity"
 	"bm-go/internal/domain/credit"
+	"bm-go/internal/types"
 )
 
 func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
@@ -105,6 +106,66 @@ func TestExchangeServiceCreditPayExchangeSkuMarksTaskFailOnPublishError(t *testi
 	}
 	if repo.failMessageID != "22222222222" {
 		t.Fatalf("expected fail task, got %s", repo.failMessageID)
+	}
+}
+
+func TestExchangeServiceCreditPayExchangeSkuIllegalParam(t *testing.T) {
+	service := NewExchangeService(&fakeExchangeRepository{}, &fakeExchangeStockService{}, &fakeExchangePublisher{}, &fakeExchangeCreditRepository{})
+
+	_, err := service.CreditPayExchangeSku(context.Background(), "", 9011)
+	assertAppErrorCode(t, err, types.ResponseCodeIllegalParam)
+}
+
+func TestExchangeServiceCreditPayExchangeSkuActivityStateError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := newExchangeRepositoryForBusinessError(now)
+	repo.activity.State = "close"
+	service := NewExchangeService(repo, &fakeExchangeStockService{ok: true}, &fakeExchangePublisher{}, &fakeExchangeCreditRepository{})
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreditPayExchangeSku(context.Background(), "xiaofuge", 9011)
+	assertAppErrorCode(t, err, types.ResponseCodeActivityStateError)
+}
+
+func TestExchangeServiceCreditPayExchangeSkuActivityDateError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := newExchangeRepositoryForBusinessError(now)
+	repo.activity.BeginDateTime = now.Add(time.Hour)
+	repo.activity.EndDateTime = now.Add(2 * time.Hour)
+	service := NewExchangeService(repo, &fakeExchangeStockService{ok: true}, &fakeExchangePublisher{}, &fakeExchangeCreditRepository{})
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreditPayExchangeSku(context.Background(), "xiaofuge", 9011)
+	assertAppErrorCode(t, err, types.ResponseCodeActivityDateError)
+}
+
+func TestExchangeServiceCreditPayExchangeSkuStockError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := newExchangeRepositoryForBusinessError(now)
+	service := NewExchangeService(repo, &fakeExchangeStockService{ok: false}, &fakeExchangePublisher{}, &fakeExchangeCreditRepository{})
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreditPayExchangeSku(context.Background(), "xiaofuge", 9011)
+	assertAppErrorCode(t, err, types.ResponseCodeActivityStateError)
+}
+
+func newExchangeRepositoryForBusinessError(now time.Time) *fakeExchangeRepository {
+	return &fakeExchangeRepository{
+		product: activity.SkuProductEntity{
+			SKU:           9011,
+			ActivityID:    100301,
+			ProductAmount: 1.68,
+		},
+		productExists: true,
+		activity: activity.ActivityEntity{
+			ActivityID:    100301,
+			ActivityName:  "test activity",
+			BeginDateTime: now.Add(-time.Hour),
+			EndDateTime:   now.Add(time.Hour),
+			StrategyID:    100006,
+			State:         activity.ActivityStateOpen,
+		},
+		activityExists: true,
 	}
 }
 
