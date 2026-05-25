@@ -140,6 +140,8 @@ func (a *Application) Start(ctx context.Context) error {
 	a.consumerCancel = cancel
 	for _, consumer := range a.consumers {
 		if err := consumer.Start(consumerCtx); err != nil {
+			cancel()
+			a.scheduler.Stop()
 			return err
 		}
 	}
