@@ -112,19 +112,32 @@ func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	consumers := newConsumers(rabbitmqClient, awardService, activityStockService, activityRebateProcessor, activityDeliveryService, logger)
+
 	return &Application{
 		cfg:            cfg,
 		logger:         logger,
 		server:         server,
 		scheduler:      scheduler,
 		rabbitmqClient: rabbitmqClient,
-		consumers: []triggerlistener.Consumer{
-			triggerlistener.NewSendAwardConsumer(rabbitmqClient, awardService, logger),
-			triggerlistener.NewActivitySkuStockZeroConsumer(rabbitmqClient, activityStockService, logger),
-			triggerlistener.NewSendRebateConsumer(rabbitmqClient, activityRebateProcessor, logger),
-			triggerlistener.NewCreditAdjustSuccessConsumer(rabbitmqClient, activityDeliveryService, logger),
-		},
+		consumers:      consumers,
 	}, nil
+}
+
+func newConsumers(
+	rabbitmqClient *infrabbitmq.Client,
+	awardService *awardservice.AwardService,
+	activityStockService *activityservice.StockService,
+	activityRebateProcessor *activityservice.RebateProcessor,
+	activityDeliveryService *activityservice.DeliveryService,
+	logger *zap.Logger,
+) []triggerlistener.Consumer {
+	return []triggerlistener.Consumer{
+		triggerlistener.NewSendAwardConsumer(rabbitmqClient, awardService, logger),
+		triggerlistener.NewActivitySkuStockZeroConsumer(rabbitmqClient, activityStockService, logger),
+		triggerlistener.NewSendRebateConsumer(rabbitmqClient, activityRebateProcessor, logger),
+		triggerlistener.NewCreditAdjustSuccessConsumer(rabbitmqClient, activityDeliveryService, logger),
+	}
 }
 
 func newScheduler(
