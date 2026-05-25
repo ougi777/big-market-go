@@ -37,11 +37,82 @@ type Application struct {
 	consumerCancel context.CancelFunc
 }
 
+type components struct {
+	rabbitmqClient          *infrabbitmq.Client
+	armoryService           *strategyservice.ArmoryService
+	raffleService           *strategyservice.RaffleService
+	queryService            *strategyservice.QueryService
+	stockService            *strategyservice.StockService
+	activityAccountService  *activityservice.AccountService
+	activitySkuProduct      *activityservice.SkuProductService
+	activityCreditService   *creditservice.AccountService
+	activityArmoryService   *activityservice.ArmoryService
+	activityStockService    *activityservice.StockService
+	activityExchangeService *activityservice.ExchangeService
+	activityRebateProcessor *activityservice.RebateProcessor
+	activityDeliveryService *activityservice.DeliveryService
+	awardService            *awardservice.AwardService
+	taskService             *taskservice.Service
+	rebateService           *rebateservice.RebateService
+	activityDrawService     *activityservice.DrawService
+}
+
 func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
+	components, err := newComponents(cfg, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
+		Logger:                        logger,
+		ArmoryService:                 components.armoryService,
+		RaffleService:                 components.raffleService,
+		QueryService:                  components.queryService,
+		ActivityAccountService:        components.activityAccountService,
+		ActivitySkuProductService:     components.activitySkuProduct,
+		ActivityArmoryService:         components.activityArmoryService,
+		ActivityStrategyArmoryService: components.armoryService,
+		ActivityDrawService:           components.activityDrawService,
+		ActivityExchangeService:       components.activityExchangeService,
+		ActivityCreditService:         components.activityCreditService,
+		ActivityRebateService:         components.rebateService,
+	})
+
+	scheduler, err := newScheduler(cfg.JobSpec(), logger, components.stockService, components.activityStockService, components.taskService)
+	if err != nil {
+		return nil, err
+	}
+
+	server := &http.Server{
+		Addr:              cfg.HTTPAddr(),
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	consumers := newConsumers(
+		components.rabbitmqClient,
+		components.awardService,
+		components.activityStockService,
+		components.activityRebateProcessor,
+		components.activityDeliveryService,
+		logger,
+	)
+
+	return &Application{
+		cfg:            cfg,
+		logger:         logger,
+		server:         server,
+		scheduler:      scheduler,
+		rabbitmqClient: components.rabbitmqClient,
+		consumers:      consumers,
+	}, nil
+}
+
+func newComponents(cfg *config.Config, logger *zap.Logger) (*components, error) {
 	dbRouter, err := mysql.OpenRouter(cfg.MySQL)
 	if err != nil {
 		return nil, err
@@ -86,41 +157,24 @@ func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 	rebateService := rebateservice.NewRebateService(rebateRepository, rabbitmqClient)
 	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
 
-	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
-		Logger:                        logger,
-		ArmoryService:                 armoryService,
-		RaffleService:                 raffleService,
-		QueryService:                  queryService,
-		ActivityAccountService:        activityAccountService,
-		ActivitySkuProductService:     activitySkuProductService,
-		ActivityArmoryService:         activityArmoryService,
-		ActivityStrategyArmoryService: armoryService,
-		ActivityDrawService:           activityDrawService,
-		ActivityExchangeService:       activityExchangeService,
-		ActivityCreditService:         activityCreditService,
-		ActivityRebateService:         rebateService,
-	})
-
-	scheduler, err := newScheduler(cfg.JobSpec(), logger, stockService, activityStockService, taskService)
-	if err != nil {
-		return nil, err
-	}
-
-	server := &http.Server{
-		Addr:              cfg.HTTPAddr(),
-		Handler:           router,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	consumers := newConsumers(rabbitmqClient, awardService, activityStockService, activityRebateProcessor, activityDeliveryService, logger)
-
-	return &Application{
-		cfg:            cfg,
-		logger:         logger,
-		server:         server,
-		scheduler:      scheduler,
-		rabbitmqClient: rabbitmqClient,
-		consumers:      consumers,
+	return &components{
+		rabbitmqClient:          rabbitmqClient,
+		armoryService:           armoryService,
+		raffleService:           raffleService,
+		queryService:            queryService,
+		stockService:            stockService,
+		activityAccountService:  activityAccountService,
+		activitySkuProduct:      activitySkuProductService,
+		activityCreditService:   activityCreditService,
+		activityArmoryService:   activityArmoryService,
+		activityStockService:    activityStockService,
+		activityExchangeService: activityExchangeService,
+		activityRebateProcessor: activityRebateProcessor,
+		activityDeliveryService: activityDeliveryService,
+		awardService:            awardService,
+		taskService:             taskService,
+		rebateService:           rebateService,
+		activityDrawService:     activityDrawService,
 	}, nil
 }
 
