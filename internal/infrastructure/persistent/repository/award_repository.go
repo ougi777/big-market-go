@@ -14,7 +14,7 @@ import (
 )
 
 type AwardRepository struct {
-	db      *gorm.DB
+	db      dbRouter
 	sharder sharding.Router
 }
 
@@ -22,6 +22,10 @@ var _ award.Repository = (*AwardRepository)(nil)
 var _ award.TaskRepository = (*AwardRepository)(nil)
 
 func NewAwardRepository(db *gorm.DB, routers ...sharding.Router) *AwardRepository {
+	return NewAwardRepositoryWithDBRouter(singleDBRouter{db: db}, routers...)
+}
+
+func NewAwardRepositoryWithDBRouter(db dbRouter, routers ...sharding.Router) *AwardRepository {
 	router := sharding.NewRouter(1)
 	if len(routers) > 0 {
 		router = routers[0]
@@ -29,8 +33,16 @@ func NewAwardRepository(db *gorm.DB, routers ...sharding.Router) *AwardRepositor
 	return &AwardRepository{db: db, sharder: router}
 }
 
+func (r *AwardRepository) defaultDB(ctx context.Context) *gorm.DB {
+	return r.db.Default().WithContext(ctx)
+}
+
+func (r *AwardRepository) shardDB(ctx context.Context, userID string) *gorm.DB {
+	return r.db.Shard(r.sharder.DBKey(userID)).WithContext(ctx)
+}
+
 func (r *AwardRepository) SaveUserAwardRecord(ctx context.Context, record award.UserAwardRecordEntity) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.shardDB(ctx, record.UserID).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		recordPO := po.UserAwardRecord{
 			UserID:     record.UserID,
@@ -75,7 +87,7 @@ func (r *AwardRepository) SaveUserAwardRecord(ctx context.Context, record award.
 
 func (r *AwardRepository) QueryAwardConfig(ctx context.Context, awardID int) (string, error) {
 	var awardPO po.Award
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("award_config").
 		Where("award_id = ?", awardID).
 		Take(&awardPO).
@@ -88,7 +100,7 @@ func (r *AwardRepository) QueryAwardConfig(ctx context.Context, awardID int) (st
 
 func (r *AwardRepository) QueryAwardKey(ctx context.Context, awardID int) (string, error) {
 	var awardPO po.Award
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("award_key").
 		Where("award_id = ?", awardID).
 		Take(&awardPO).
@@ -100,7 +112,7 @@ func (r *AwardRepository) QueryAwardKey(ctx context.Context, awardID int) (strin
 }
 
 func (r *AwardRepository) SaveGiveOutPrizes(ctx context.Context, aggregate award.GiveOutPrizesAggregate) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.shardDB(ctx, aggregate.UserAwardRecord.UserID).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		creditPO := po.UserCreditAccount{
 			UserID:          aggregate.UserCreditAward.UserID,
@@ -149,7 +161,7 @@ func (r *AwardRepository) QueryNoSendMessageTaskList(ctx context.Context, limit 
 	}
 
 	var taskPOList []po.Task
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("user_id", "topic", "message_id", "message", "state").
 		Where("state = ? or (state = ? and update_time < date_sub(now(), interval 6 second))", award.TaskStateFail, award.TaskStateCreate).
 		Limit(limit).
@@ -181,7 +193,7 @@ func (r *AwardRepository) UpdateTaskSendMessageFail(ctx context.Context, userID 
 }
 
 func (r *AwardRepository) updateTaskState(ctx context.Context, userID string, messageID string, state string) error {
-	return r.db.WithContext(ctx).
+	return r.shardDB(ctx, userID).
 		Model(&po.Task{}).
 		Where("user_id = ? and message_id = ?", userID, messageID).
 		Updates(map[string]any{

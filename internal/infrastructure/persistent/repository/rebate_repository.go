@@ -13,13 +13,17 @@ import (
 )
 
 type RebateRepository struct {
-	db      *gorm.DB
+	db      dbRouter
 	sharder sharding.Router
 }
 
 var _ rebate.Repository = (*RebateRepository)(nil)
 
 func NewRebateRepository(db *gorm.DB, routers ...sharding.Router) *RebateRepository {
+	return NewRebateRepositoryWithDBRouter(singleDBRouter{db: db}, routers...)
+}
+
+func NewRebateRepositoryWithDBRouter(db dbRouter, routers ...sharding.Router) *RebateRepository {
 	router := sharding.NewRouter(1)
 	if len(routers) > 0 {
 		router = routers[0]
@@ -27,9 +31,17 @@ func NewRebateRepository(db *gorm.DB, routers ...sharding.Router) *RebateReposit
 	return &RebateRepository{db: db, sharder: router}
 }
 
+func (r *RebateRepository) defaultDB(ctx context.Context) *gorm.DB {
+	return r.db.Default().WithContext(ctx)
+}
+
+func (r *RebateRepository) shardDB(ctx context.Context, userID string) *gorm.DB {
+	return r.db.Shard(r.sharder.DBKey(userID)).WithContext(ctx)
+}
+
 func (r *RebateRepository) QueryDailyBehaviorRebateConfig(ctx context.Context, behaviorType string) ([]rebate.DailyBehaviorRebateEntity, error) {
 	var configPOList []po.DailyBehaviorRebate
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("behavior_type", "rebate_desc", "rebate_type", "rebate_config").
 		Where("behavior_type = ? and state = ?", behaviorType, rebate.RebateStateOpen).
 		Find(&configPOList).
@@ -51,7 +63,10 @@ func (r *RebateRepository) QueryDailyBehaviorRebateConfig(ctx context.Context, b
 }
 
 func (r *RebateRepository) SaveUserRebateRecords(ctx context.Context, aggregates []rebate.BehaviorRebateAggregate) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if len(aggregates) == 0 {
+		return nil
+	}
+	return r.shardDB(ctx, aggregates[0].UserID).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		for _, aggregate := range aggregates {
 			orderPO := po.UserBehaviorRebateOrder{
@@ -89,7 +104,7 @@ func (r *RebateRepository) SaveUserRebateRecords(ctx context.Context, aggregates
 
 func (r *RebateRepository) QueryOrderByOutBusinessNo(ctx context.Context, userID string, outBusinessNo string) ([]rebate.BehaviorRebateOrderEntity, error) {
 	var orderPOList []po.UserBehaviorRebateOrder
-	err := r.db.WithContext(ctx).
+	err := r.shardDB(ctx, userID).
 		Table(r.sharder.Table("user_behavior_rebate_order", userID)).
 		Select("user_id", "order_id", "behavior_type", "rebate_desc", "rebate_type", "rebate_config", "out_business_no", "biz_id").
 		Where("user_id = ? and out_business_no = ?", userID, outBusinessNo).
@@ -124,7 +139,7 @@ func (r *RebateRepository) UpdateTaskSendMessageFail(ctx context.Context, userID
 }
 
 func (r *RebateRepository) updateTaskState(ctx context.Context, userID string, messageID string, state string) error {
-	return r.db.WithContext(ctx).
+	return r.shardDB(ctx, userID).
 		Model(&po.Task{}).
 		Where("user_id = ? and message_id = ?", userID, messageID).
 		Updates(map[string]any{

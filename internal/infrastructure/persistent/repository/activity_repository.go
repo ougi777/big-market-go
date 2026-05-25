@@ -14,7 +14,7 @@ import (
 )
 
 type ActivityRepository struct {
-	db      *gorm.DB
+	db      dbRouter
 	sharder sharding.Router
 }
 
@@ -28,6 +28,10 @@ var _ activity.RebateRepository = (*ActivityRepository)(nil)
 var _ activity.DeliveryRepository = (*ActivityRepository)(nil)
 
 func NewActivityRepository(db *gorm.DB, routers ...sharding.Router) *ActivityRepository {
+	return NewActivityRepositoryWithDBRouter(singleDBRouter{db: db}, routers...)
+}
+
+func NewActivityRepositoryWithDBRouter(db dbRouter, routers ...sharding.Router) *ActivityRepository {
 	router := sharding.NewRouter(1)
 	if len(routers) > 0 {
 		router = routers[0]
@@ -35,9 +39,17 @@ func NewActivityRepository(db *gorm.DB, routers ...sharding.Router) *ActivityRep
 	return &ActivityRepository{db: db, sharder: router}
 }
 
+func (r *ActivityRepository) defaultDB(ctx context.Context) *gorm.DB {
+	return r.db.Default().WithContext(ctx)
+}
+
+func (r *ActivityRepository) shardDB(ctx context.Context, userID string) *gorm.DB {
+	return r.db.Shard(r.sharder.DBKey(userID)).WithContext(ctx)
+}
+
 func (r *ActivityRepository) QueryActivityByActivityID(ctx context.Context, activityID int64) (activity.ActivityEntity, bool, error) {
 	var activityPO po.RaffleActivity
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("activity_id", "activity_name", "activity_desc", "begin_date_time", "end_date_time", "strategy_id", "state").
 		Where("activity_id = ?", activityID).
 		First(&activityPO).
@@ -62,7 +74,7 @@ func (r *ActivityRepository) QueryActivityByActivityID(ctx context.Context, acti
 
 func (r *ActivityRepository) QueryActivityAccount(ctx context.Context, activityID int64, userID string) (activity.AccountEntity, bool, error) {
 	var accountPO po.RaffleActivityAccount
-	err := r.db.WithContext(ctx).
+	err := r.shardDB(ctx, userID).
 		Select("user_id", "activity_id", "total_count", "total_count_surplus", "day_count", "day_count_surplus", "month_count", "month_count_surplus").
 		Where("user_id = ? and activity_id = ?", userID, activityID).
 		First(&accountPO).
@@ -88,7 +100,7 @@ func (r *ActivityRepository) QueryActivityAccount(ctx context.Context, activityI
 
 func (r *ActivityRepository) QueryActivityAccountDay(ctx context.Context, activityID int64, userID string, day string) (activity.AccountDayEntity, bool, error) {
 	var dayPO po.RaffleActivityAccountDay
-	err := r.db.WithContext(ctx).
+	err := r.shardDB(ctx, userID).
 		Select("user_id", "activity_id", "day", "day_count", "day_count_surplus").
 		Where("user_id = ? and activity_id = ? and day = ?", userID, activityID, day).
 		First(&dayPO).
@@ -111,7 +123,7 @@ func (r *ActivityRepository) QueryActivityAccountDay(ctx context.Context, activi
 
 func (r *ActivityRepository) QueryActivityAccountMonth(ctx context.Context, activityID int64, userID string, month string) (activity.AccountMonthEntity, bool, error) {
 	var monthPO po.RaffleActivityAccountMonth
-	err := r.db.WithContext(ctx).
+	err := r.shardDB(ctx, userID).
 		Select("user_id", "activity_id", "month", "month_count", "month_count_surplus").
 		Where("user_id = ? and activity_id = ? and month = ?", userID, activityID, month).
 		First(&monthPO).
@@ -134,7 +146,7 @@ func (r *ActivityRepository) QueryActivityAccountMonth(ctx context.Context, acti
 
 func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID string) (activity.CreditAccountEntity, bool, error) {
 	var accountPO po.UserCreditAccount
-	err := r.db.WithContext(ctx).
+	err := r.shardDB(ctx, userID).
 		Select("user_id", "available_amount").
 		Where("user_id = ?", userID).
 		First(&accountPO).
@@ -153,7 +165,7 @@ func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID 
 
 func (r *ActivityRepository) QueryNoUsedRaffleOrder(ctx context.Context, userID string, activityID int64) (activity.UserRaffleOrderEntity, bool, error) {
 	var orderPO po.UserRaffleOrder
-	err := r.db.WithContext(ctx).
+	err := r.shardDB(ctx, userID).
 		Table(r.sharder.Table("user_raffle_order", userID)).
 		Select("user_id", "activity_id", "activity_name", "strategy_id", "order_id", "order_time", "order_state").
 		Where("user_id = ? and activity_id = ? and order_state = ?", userID, activityID, activity.UserRaffleOrderCreate).
@@ -178,7 +190,7 @@ func (r *ActivityRepository) QueryNoUsedRaffleOrder(ctx context.Context, userID 
 }
 
 func (r *ActivityRepository) SaveCreatePartakeOrder(ctx context.Context, aggregate activity.CreatePartakeOrderAggregate) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.shardDB(ctx, aggregate.UserID).Transaction(func(tx *gorm.DB) error {
 		if err := subtractAccountQuota(tx, aggregate.UserID, aggregate.ActivityID); err != nil {
 			return err
 		}
@@ -207,7 +219,7 @@ func (r *ActivityRepository) SaveCreatePartakeOrder(ctx context.Context, aggrega
 
 func (r *ActivityRepository) QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]activity.SkuProductEntity, error) {
 	var skuPOList []po.RaffleActivitySku
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("sku", "activity_id", "activity_count_id", "stock_count", "stock_count_surplus", "product_amount").
 		Where("activity_id = ?", activityID).
 		Find(&skuPOList).
@@ -238,7 +250,7 @@ func (r *ActivityRepository) QuerySkuProductListByActivityID(ctx context.Context
 
 func (r *ActivityRepository) QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error) {
 	var skuPO po.RaffleActivitySku
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("sku", "activity_id", "activity_count_id", "stock_count", "stock_count_surplus", "product_amount").
 		Where("sku = ?", sku).
 		First(&skuPO).
@@ -266,7 +278,7 @@ func (r *ActivityRepository) QuerySkuProductBySKU(ctx context.Context, sku int64
 
 func (r *ActivityRepository) QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (activity.SkuExchangeOrderEntity, bool, error) {
 	var orderPO po.RaffleActivityOrder
-	err := r.db.WithContext(ctx).
+	err := r.shardDB(ctx, userID).
 		Table(r.sharder.Table("raffle_activity_order", userID)).
 		Select("user_id", "sku", "order_id", "out_business_no", "pay_amount").
 		Where("user_id = ? and sku = ? and state = ? and order_time >= date_sub(now(), interval 1 month)", userID, sku, activity.ActivityOrderWaitPay).
@@ -304,7 +316,7 @@ func (r *ActivityRepository) SaveCreditPayOrder(ctx context.Context, aggregate a
 		State:         order.State,
 		OutBusinessNo: order.OutBusinessNo,
 	}
-	if err := r.db.WithContext(ctx).Table(r.sharder.Table("raffle_activity_order", aggregate.UserID)).Create(&orderPO).Error; err != nil {
+	if err := r.shardDB(ctx, aggregate.UserID).Table(r.sharder.Table("raffle_activity_order", aggregate.UserID)).Create(&orderPO).Error; err != nil {
 		return types.NewAppError(types.ResponseCodeIndexDup, err)
 	}
 	return nil
@@ -312,7 +324,7 @@ func (r *ActivityRepository) SaveCreditPayOrder(ctx context.Context, aggregate a
 
 func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggregate activity.CompleteSkuExchangeAggregate) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.shardDB(ctx, aggregate.UserID).Transaction(func(tx *gorm.DB) error {
 		if err := adjustUserCreditAccount(tx, aggregate.CreditOrder); err != nil {
 			return err
 		}
@@ -349,7 +361,7 @@ func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggrega
 func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate activity.CreateRebateSkuOrderAggregate) error {
 	now := time.Now()
 	order := aggregate.ActivityOrder
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.shardDB(ctx, aggregate.UserID).Transaction(func(tx *gorm.DB) error {
 		orderPO := po.RaffleActivityOrder{
 			UserID:        order.UserID,
 			SKU:           order.SKU,
@@ -383,7 +395,7 @@ func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate a
 
 func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral activity.RebateIntegralEntity) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.shardDB(ctx, rebateIntegral.UserID).Transaction(func(tx *gorm.DB) error {
 		creditOrder := activity.CreditOrderEntity{
 			UserID:        rebateIntegral.UserID,
 			OrderID:       rebateIntegral.OrderID,
@@ -413,7 +425,7 @@ func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebate
 
 func (r *ActivityRepository) DeliverActivityOrder(ctx context.Context, deliveryOrder activity.DeliveryOrderEntity) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.shardDB(ctx, deliveryOrder.UserID).Transaction(func(tx *gorm.DB) error {
 		var orderPO po.RaffleActivityOrder
 		err := tx.
 			Table(r.sharder.Table("raffle_activity_order", deliveryOrder.UserID)).
@@ -461,7 +473,7 @@ func (r *ActivityRepository) UpdateTaskSendMessageFail(ctx context.Context, user
 }
 
 func (r *ActivityRepository) updateTaskState(ctx context.Context, userID string, messageID string, state string) error {
-	return r.db.WithContext(ctx).
+	return r.shardDB(ctx, userID).
 		Model(&po.Task{}).
 		Where("user_id = ? and message_id = ?", userID, messageID).
 		Updates(map[string]any{
@@ -472,7 +484,7 @@ func (r *ActivityRepository) updateTaskState(ctx context.Context, userID string,
 }
 
 func (r *ActivityRepository) UpdateActivitySkuStock(ctx context.Context, sku int64) error {
-	return r.db.WithContext(ctx).
+	return r.defaultDB(ctx).
 		Model(&po.RaffleActivitySku{}).
 		Where("sku = ? and stock_count_surplus > 0", sku).
 		Updates(map[string]any{
@@ -483,7 +495,7 @@ func (r *ActivityRepository) UpdateActivitySkuStock(ctx context.Context, sku int
 }
 
 func (r *ActivityRepository) ClearActivitySkuStock(ctx context.Context, sku int64) error {
-	return r.db.WithContext(ctx).
+	return r.defaultDB(ctx).
 		Model(&po.RaffleActivitySku{}).
 		Where("sku = ?", sku).
 		Updates(map[string]any{
@@ -495,7 +507,7 @@ func (r *ActivityRepository) ClearActivitySkuStock(ctx context.Context, sku int6
 
 func (r *ActivityRepository) queryActivityCount(ctx context.Context, activityCountID int64) (activity.ActivityCountEntity, error) {
 	var countPO po.RaffleActivityCount
-	err := r.db.WithContext(ctx).
+	err := r.defaultDB(ctx).
 		Select("activity_count_id", "total_count", "day_count", "month_count").
 		Where("activity_count_id = ?", activityCountID).
 		First(&countPO).

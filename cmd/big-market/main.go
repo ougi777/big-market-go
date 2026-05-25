@@ -40,10 +40,11 @@ func main() {
 	}
 	defer func() { _ = logger.Sync() }()
 
-	db, err := mysql.Open(cfg.MySQL)
+	dbRouter, err := mysql.OpenRouter(cfg.MySQL)
 	if err != nil {
 		logger.Fatal("open mysql failed", zap.Error(err))
 	}
+	db := dbRouter.Default()
 	redisClient := infrredis.NewClient(cfg.Redis)
 	rabbitmqClient, err := infrabbitmq.Dial(cfg.RabbitMQ)
 	if err != nil {
@@ -55,9 +56,9 @@ func main() {
 	activityStore := infrredis.NewActivityStore(redisClient)
 	tableRouter := sharding.NewRouterWithDBCount(cfg.Sharding.DBCount, cfg.Sharding.TableCount)
 	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
-	activityRepository := repository.NewActivityRepository(db, tableRouter)
-	awardRepository := repository.NewAwardRepository(db, tableRouter)
-	rebateRepository := repository.NewRebateRepository(db, tableRouter)
+	activityRepository := repository.NewActivityRepositoryWithDBRouter(dbRouter, tableRouter)
+	awardRepository := repository.NewAwardRepositoryWithDBRouter(dbRouter, tableRouter)
+	rebateRepository := repository.NewRebateRepositoryWithDBRouter(dbRouter, tableRouter)
 	strategyDispatch := repository.NewStrategyDispatch(redisClient)
 	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
 	treeNodes := map[string]tree.Node{
