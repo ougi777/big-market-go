@@ -75,6 +75,27 @@ func TestAwardServiceSaveUserAwardRecordMarksTaskFailOnPublishError(t *testing.T
 	}
 }
 
+func TestAwardServiceSaveUserAwardRecordMessageIDError(t *testing.T) {
+	service := NewAwardService(&fakeAwardRepository{}, nil, nil)
+	service.messageGenerator = func() (string, error) { return "", errors.New("id failed") }
+
+	err := service.SaveUserAwardRecord(context.Background(), award.UserAwardRecordEntity{UserID: "xiaofuge"})
+	if err == nil {
+		t.Fatal("expected message id error")
+	}
+}
+
+func TestAwardServiceSaveUserAwardRecordRepositoryError(t *testing.T) {
+	repo := &fakeAwardRepository{saveRecordErr: errors.New("save failed")}
+	service := NewAwardService(repo, nil, &fakeAwardPublisher{})
+	service.messageGenerator = func() (string, error) { return "12345678901", nil }
+
+	err := service.SaveUserAwardRecord(context.Background(), award.UserAwardRecordEntity{UserID: "xiaofuge"})
+	if err == nil {
+		t.Fatal("expected save record error")
+	}
+}
+
 func TestAwardServiceDistributeAward(t *testing.T) {
 	repo := &fakeAwardRepository{
 		awardKey: award.AwardKeyUserCreditRand,
@@ -105,29 +126,110 @@ func TestAwardServiceDistributeAward(t *testing.T) {
 	}
 }
 
+func TestAwardServiceDistributeAwardQueriesConfigWhenMissing(t *testing.T) {
+	repo := &fakeAwardRepository{
+		awardKey:    award.AwardKeyUserCreditRand,
+		awardConfig: "0.01,1",
+	}
+	service := NewAwardService(repo, nil, nil)
+	service.creditGenerator = func(min float64, max float64) (float64, error) { return 0.58, nil }
+
+	err := service.DistributeAward(context.Background(), award.DistributeAwardEntity{
+		UserID:  "xiaofuge",
+		OrderID: "order-001",
+		AwardID: 101,
+	})
+	if err != nil {
+		t.Fatalf("distribute award: %v", err)
+	}
+	if repo.queryConfigAwardID != 101 {
+		t.Fatalf("expected query config award id 101, got %d", repo.queryConfigAwardID)
+	}
+}
+
+func TestAwardServiceDistributeAwardKeyError(t *testing.T) {
+	repo := &fakeAwardRepository{queryKeyErr: errors.New("query key failed")}
+	service := NewAwardService(repo, nil, nil)
+
+	err := service.DistributeAward(context.Background(), award.DistributeAwardEntity{AwardID: 101})
+	if err == nil {
+		t.Fatal("expected query key error")
+	}
+}
+
+func TestAwardServiceDistributeAwardMissingDistributor(t *testing.T) {
+	repo := &fakeAwardRepository{awardKey: "unknown"}
+	service := NewAwardService(repo, nil, nil)
+
+	err := service.DistributeAward(context.Background(), award.DistributeAwardEntity{AwardID: 101})
+	if err == nil {
+		t.Fatal("expected missing distributor error")
+	}
+}
+
+func TestAwardServiceDistributeAwardInvalidConfig(t *testing.T) {
+	repo := &fakeAwardRepository{awardKey: award.AwardKeyUserCreditRand}
+	service := NewAwardService(repo, nil, nil)
+
+	err := service.DistributeAward(context.Background(), award.DistributeAwardEntity{
+		UserID:      "xiaofuge",
+		OrderID:     "order-001",
+		AwardID:     101,
+		AwardConfig: "bad",
+	})
+	if err == nil {
+		t.Fatal("expected invalid config error")
+	}
+}
+
+func TestAwardServiceDistributeAwardSaveGiveOutError(t *testing.T) {
+	repo := &fakeAwardRepository{
+		awardKey:       award.AwardKeyUserCreditRand,
+		saveGiveOutErr: errors.New("save give out failed"),
+	}
+	service := NewAwardService(repo, nil, nil)
+	service.creditGenerator = func(min float64, max float64) (float64, error) { return 0.58, nil }
+
+	err := service.DistributeAward(context.Background(), award.DistributeAwardEntity{
+		UserID:      "xiaofuge",
+		OrderID:     "order-001",
+		AwardID:     101,
+		AwardConfig: "0.01,1",
+	})
+	if err == nil {
+		t.Fatal("expected save give out error")
+	}
+}
+
 type fakeAwardRepository struct {
-	record      award.UserAwardRecordEntity
-	awardKey    string
-	awardConfig string
-	aggregate   award.GiveOutPrizesAggregate
+	record             award.UserAwardRecordEntity
+	awardKey           string
+	awardConfig        string
+	aggregate          award.GiveOutPrizesAggregate
+	saveRecordErr      error
+	queryConfigAwardID int
+	queryConfigErr     error
+	queryKeyErr        error
+	saveGiveOutErr     error
 }
 
 func (f *fakeAwardRepository) SaveUserAwardRecord(ctx context.Context, record award.UserAwardRecordEntity) error {
 	f.record = record
-	return nil
+	return f.saveRecordErr
 }
 
 func (f *fakeAwardRepository) QueryAwardConfig(ctx context.Context, awardID int) (string, error) {
-	return f.awardConfig, nil
+	f.queryConfigAwardID = awardID
+	return f.awardConfig, f.queryConfigErr
 }
 
 func (f *fakeAwardRepository) QueryAwardKey(ctx context.Context, awardID int) (string, error) {
-	return f.awardKey, nil
+	return f.awardKey, f.queryKeyErr
 }
 
 func (f *fakeAwardRepository) SaveGiveOutPrizes(ctx context.Context, aggregate award.GiveOutPrizesAggregate) error {
 	f.aggregate = aggregate
-	return nil
+	return f.saveGiveOutErr
 }
 
 type fakeAwardTaskRepository struct {
