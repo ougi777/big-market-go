@@ -4,7 +4,8 @@
 
 项目采用轻量 DDD 分层：
 
-- `cmd/big-market`：应用启动入口，完成配置加载、依赖装配、HTTP 与定时任务启动
+- `cmd/big-market`：应用启动入口，完成配置加载、日志初始化、信号监听
+- `internal/app`：应用装配层，统一完成依赖组装、HTTP 服务、定时任务、RabbitMQ 消费者生命周期管理
 - `internal/domain`：领域模型、仓储接口、领域服务、规则引擎
 - `internal/infrastructure`：MySQL、Redis、RabbitMQ 等基础设施实现
 - `internal/trigger/http`：Gin HTTP 接口适配
