@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"bm-go/internal/domain/strategy"
@@ -23,6 +24,7 @@ func TestArmoryServiceAssembleLotteryStrategy(t *testing.T) {
 			RuleModel:  "rule_weight",
 			RuleValue:  "4000:101",
 		},
+		ruleExists: true,
 	}
 	store := newFakeRateTableStore()
 	armory := NewArmoryService(repo, store)
@@ -80,35 +82,126 @@ func TestArmoryServiceAssembleLotteryStrategyByActivityID(t *testing.T) {
 	}
 }
 
+func TestArmoryServiceAssembleLotteryStrategyByActivityIDError(t *testing.T) {
+	repo := &fakeArmoryRepository{strategyIDErr: errors.New("query strategy id failed")}
+	armory := NewArmoryService(repo, newFakeRateTableStore())
+
+	err := armory.AssembleLotteryStrategyByActivityID(context.Background(), 100301)
+	if err == nil {
+		t.Fatal("expected strategy id error")
+	}
+}
+
+func TestArmoryServiceAssembleLotteryStrategyByActivityIDEmptyStrategy(t *testing.T) {
+	repo := &fakeArmoryRepository{}
+	armory := NewArmoryService(repo, newFakeRateTableStore())
+
+	err := armory.AssembleLotteryStrategyByActivityID(context.Background(), 100301)
+	if err == nil {
+		t.Fatal("expected empty strategy error")
+	}
+}
+
+func TestArmoryServiceAssembleLotteryStrategyAwardsError(t *testing.T) {
+	repo := &fakeArmoryRepository{awardsErr: errors.New("query awards failed")}
+	armory := NewArmoryService(repo, newFakeRateTableStore())
+
+	err := armory.AssembleLotteryStrategy(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected awards error")
+	}
+}
+
+func TestArmoryServiceAssembleLotteryStrategyAwardsEmpty(t *testing.T) {
+	repo := &fakeArmoryRepository{}
+	armory := NewArmoryService(repo, newFakeRateTableStore())
+
+	err := armory.AssembleLotteryStrategy(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected empty awards error")
+	}
+}
+
+func TestArmoryServiceAssembleLotteryStrategyCacheStockError(t *testing.T) {
+	repo := &fakeArmoryRepository{
+		awards: []strategy.StrategyAwardEntity{{StrategyID: 100001, AwardID: 101, AwardCountSurplus: 10, AwardRate: 1}},
+	}
+	store := newFakeRateTableStore()
+	store.cacheErr = errors.New("cache failed")
+	armory := NewArmoryService(repo, store)
+
+	err := armory.AssembleLotteryStrategy(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected cache stock error")
+	}
+}
+
+func TestArmoryServiceAssembleLotteryStrategyEntityError(t *testing.T) {
+	repo := &fakeArmoryRepository{
+		awards:            []strategy.StrategyAwardEntity{{StrategyID: 100001, AwardID: 101, AwardCountSurplus: 10, AwardRate: 1}},
+		strategyEntityErr: errors.New("query strategy failed"),
+	}
+	armory := NewArmoryService(repo, newFakeRateTableStore())
+
+	err := armory.AssembleLotteryStrategy(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected strategy entity error")
+	}
+}
+
+func TestArmoryServiceAssembleLotteryStrategyRuleWeightMissing(t *testing.T) {
+	repo := &fakeArmoryRepository{
+		awards: []strategy.StrategyAwardEntity{{StrategyID: 100001, AwardID: 101, AwardCountSurplus: 10, AwardRate: 1}},
+		strategyEntity: strategy.StrategyEntity{
+			StrategyID:    100001,
+			RuleModelList: []string{"rule_weight"},
+		},
+		ruleExists: false,
+	}
+	armory := NewArmoryService(repo, newFakeRateTableStore())
+
+	err := armory.AssembleLotteryStrategy(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected rule weight missing error")
+	}
+}
+
 type fakeArmoryRepository struct {
-	activityID     int64
-	strategyID     int64
-	awards         []strategy.StrategyAwardEntity
-	strategyEntity strategy.StrategyEntity
-	ruleEntity     strategy.StrategyRuleEntity
+	activityID        int64
+	strategyID        int64
+	awards            []strategy.StrategyAwardEntity
+	strategyEntity    strategy.StrategyEntity
+	ruleEntity        strategy.StrategyRuleEntity
+	ruleExists        bool
+	strategyIDErr     error
+	awardsErr         error
+	strategyEntityErr error
+	ruleErr           error
 }
 
 func (f *fakeArmoryRepository) QueryStrategyIDByActivityID(ctx context.Context, activityID int64) (int64, error) {
 	f.activityID = activityID
-	return f.strategyID, nil
+	return f.strategyID, f.strategyIDErr
 }
 
 func (f *fakeArmoryRepository) QueryStrategyAwardList(ctx context.Context, strategyID int64) ([]strategy.StrategyAwardEntity, error) {
-	return f.awards, nil
+	return f.awards, f.awardsErr
 }
 
 func (f *fakeArmoryRepository) QueryStrategyEntityByStrategyID(ctx context.Context, strategyID int64) (strategy.StrategyEntity, error) {
-	return f.strategyEntity, nil
+	return f.strategyEntity, f.strategyEntityErr
 }
 
 func (f *fakeArmoryRepository) QueryStrategyRule(ctx context.Context, strategyID int64, ruleModel string) (strategy.StrategyRuleEntity, bool, error) {
-	return f.ruleEntity, true, nil
+	return f.ruleEntity, f.ruleExists, f.ruleErr
 }
 
 type fakeRateTableStore struct {
 	rateRanges  map[string]int
 	tables      map[string]map[int]int
 	awardCounts map[string]int
+	cacheErr    error
+	storeErr    error
 }
 
 func newFakeRateTableStore() *fakeRateTableStore {
@@ -122,10 +215,10 @@ func newFakeRateTableStore() *fakeRateTableStore {
 func (f *fakeRateTableStore) StoreStrategyAwardSearchRateTable(ctx context.Context, key string, rateRange int, table map[int]int) error {
 	f.rateRanges[key] = rateRange
 	f.tables[key] = table
-	return nil
+	return f.storeErr
 }
 
 func (f *fakeRateTableStore) CacheStrategyAwardCount(ctx context.Context, key string, awardCount int) error {
 	f.awardCounts[key] = awardCount
-	return nil
+	return f.cacheErr
 }
