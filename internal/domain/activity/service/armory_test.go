@@ -47,6 +47,10 @@ func (f *fakeArmorySkuProductRepository) QuerySkuProductListByActivityID(ctx con
 	return f.products, nil
 }
 
+func (f *fakeArmorySkuProductRepository) QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error) {
+	return activity.SkuProductEntity{}, false, nil
+}
+
 type fakeActivitySkuStockStore struct {
 	stocks map[string]int
 }

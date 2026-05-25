@@ -4,6 +4,8 @@ import "time"
 
 const (
 	ActivityStateOpen         = "open"
+	ActivityOrderWaitPay      = "wait_pay"
+	ActivityOrderCompleted    = "completed"
 	TopicActivitySkuStockZero = "activity_sku_stock_zero"
 	UserRaffleOrderCreate     = "create"
 	UserRaffleOrderUsed       = "used"
@@ -55,6 +57,55 @@ type SkuProductEntity struct {
 	StockCountSurplus int
 	ProductAmount     float64
 	ActivityCount     ActivityCountEntity
+}
+
+type ActivityOrderEntity struct {
+	UserID        string
+	SKU           int64
+	ActivityID    int64
+	ActivityName  string
+	StrategyID    int64
+	OrderID       string
+	OrderTime     time.Time
+	TotalCount    int
+	DayCount      int
+	MonthCount    int
+	PayAmount     float64
+	State         string
+	OutBusinessNo string
+}
+
+type CreditOrderEntity struct {
+	UserID        string
+	OrderID       string
+	TradeName     string
+	TradeType     string
+	TradeAmount   float64
+	OutBusinessNo string
+}
+
+type SkuExchangeOrderEntity struct {
+	UserID        string
+	SKU           int64
+	OrderID       string
+	OutBusinessNo string
+	PayAmount     float64
+}
+
+type CreateSkuExchangeOrderAggregate struct {
+	UserID        string
+	ActivityID    int64
+	ActivityOrder ActivityOrderEntity
+}
+
+type CompleteSkuExchangeAggregate struct {
+	UserID        string
+	ActivityID    int64
+	TotalCount    int
+	DayCount      int
+	MonthCount    int
+	OutBusinessNo string
+	CreditOrder   CreditOrderEntity
 }
 
 type ActivitySkuStockKey struct {

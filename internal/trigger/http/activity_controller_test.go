@@ -132,6 +132,28 @@ func TestQuerySkuProductListByActivityIDRoute(t *testing.T) {
 	}
 }
 
+func TestCreditPayExchangeSkuRoute(t *testing.T) {
+	exchange := &fakeActivityExchangeService{result: true}
+	router := NewRouter(RouterOptions{
+		ActivityExchangeService: exchange,
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/credit_pay_exchange_sku", strings.NewReader(`{"userId":"xiaofuge","sku":9011}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"data":true`) {
+		t.Fatalf("expected success data true, got %s", recorder.Body.String())
+	}
+	if exchange.userID != "xiaofuge" || exchange.sku != 9011 {
+		t.Fatalf("expected exchange request, got %s/%d", exchange.userID, exchange.sku)
+	}
+}
+
 type fakeActivityAccountService struct {
 	account activity.AccountEntity
 }
@@ -171,5 +193,17 @@ type fakeActivityDrawService struct {
 }
 
 func (f *fakeActivityDrawService) Draw(ctx context.Context, userID string, activityID int64) (activity.DrawResult, error) {
+	return f.result, nil
+}
+
+type fakeActivityExchangeService struct {
+	userID string
+	sku    int64
+	result bool
+}
+
+func (f *fakeActivityExchangeService) CreditPayExchangeSku(ctx context.Context, userID string, sku int64) (bool, error) {
+	f.userID = userID
+	f.sku = sku
 	return f.result, nil
 }

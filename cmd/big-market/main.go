@@ -70,6 +70,7 @@ func main() {
 	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
 	activityPartakeService := activityservice.NewPartakeService(activityRepository)
 	activityStockService := activityservice.NewStockService(activityRepository, activityStore, activityStore, rabbitmqClient)
+	activityExchangeService := activityservice.NewExchangeService(activityRepository, activityStockService)
 	awardService := awardservice.NewAwardService(awardRepository, awardRepository, rabbitmqClient)
 	taskService := awardservice.NewTaskService(awardRepository, rabbitmqClient)
 	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
@@ -84,6 +85,7 @@ func main() {
 		ActivityArmoryService:         activityArmoryService,
 		ActivityStrategyArmoryService: armoryService,
 		ActivityDrawService:           activityDrawService,
+		ActivityExchangeService:       activityExchangeService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),

@@ -15,6 +15,7 @@ type RouterOptions struct {
 	ActivityArmoryService         activityArmoryService
 	ActivityStrategyArmoryService activityStrategyArmoryService
 	ActivityDrawService           activityDrawService
+	ActivityExchangeService       activityExchangeService
 }
 
 func NewRouter(opts RouterOptions) *gin.Engine {

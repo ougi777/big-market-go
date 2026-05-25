@@ -10,6 +10,7 @@ type AccountRepository interface {
 
 type SkuProductRepository interface {
 	QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]SkuProductEntity, error)
+	QuerySkuProductBySKU(ctx context.Context, sku int64) (SkuProductEntity, bool, error)
 }
 
 type SkuStockStore interface {
@@ -28,6 +29,12 @@ type SkuStockRepository interface {
 	ClearActivitySkuStock(ctx context.Context, sku int64) error
 }
 
+type SkuExchangeRepository interface {
+	QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (SkuExchangeOrderEntity, bool, error)
+	SaveCreditPayOrder(ctx context.Context, aggregate CreateSkuExchangeOrderAggregate) error
+	CompleteCreditPayOrder(ctx context.Context, aggregate CompleteSkuExchangeAggregate) error
+}
+
 type PartakeRepository interface {
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (ActivityEntity, bool, error)
 	QueryNoUsedRaffleOrder(ctx context.Context, userID string, activityID int64) (UserRaffleOrderEntity, bool, error)
@@ -40,5 +47,6 @@ type PartakeRepository interface {
 type Repository interface {
 	AccountRepository
 	SkuProductRepository
+	SkuExchangeRepository
 	PartakeRepository
 }

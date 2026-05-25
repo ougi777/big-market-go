@@ -52,3 +52,7 @@ func (f *fakeSkuProductRepository) QuerySkuProductListByActivityID(ctx context.C
 	f.activityID = activityID
 	return f.products, nil
 }
+
+func (f *fakeSkuProductRepository) QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error) {
+	return activity.SkuProductEntity{}, false, nil
+}

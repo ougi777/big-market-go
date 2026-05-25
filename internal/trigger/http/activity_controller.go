@@ -32,12 +32,17 @@ type activityDrawService interface {
 	Draw(ctx context.Context, userID string, activityID int64) (activity.DrawResult, error)
 }
 
+type activityExchangeService interface {
+	CreditPayExchangeSku(ctx context.Context, userID string, sku int64) (bool, error)
+}
+
 type raffleActivityController struct {
 	accountService        activityAccountService
 	skuProductService     activitySkuProductService
 	armoryService         activityArmoryService
 	strategyArmoryService activityStrategyArmoryService
 	drawService           activityDrawService
+	exchangeService       activityExchangeService
 }
 
 type activityDrawRequest struct {
@@ -54,6 +59,11 @@ type activityDrawResponse struct {
 type userActivityAccountRequest struct {
 	UserID     string `json:"userId"`
 	ActivityID int64  `json:"activityId"`
+}
+
+type skuProductShopCartRequest struct {
+	UserID string `json:"userId"`
+	SKU    int64  `json:"sku"`
 }
 
 type userActivityAccountResponse struct {
@@ -96,6 +106,7 @@ func registerRaffleActivityRoutes(router *gin.RouterGroup, opts RouterOptions) {
 		armoryService:         opts.ActivityArmoryService,
 		strategyArmoryService: opts.ActivityStrategyArmoryService,
 		drawService:           opts.ActivityDrawService,
+		exchangeService:       opts.ActivityExchangeService,
 	}
 	if controller.accountService == nil {
 		controller.accountService = nilActivityAccountService{}
@@ -112,12 +123,16 @@ func registerRaffleActivityRoutes(router *gin.RouterGroup, opts RouterOptions) {
 	if controller.drawService == nil {
 		controller.drawService = nilActivityDrawService{}
 	}
+	if controller.exchangeService == nil {
+		controller.exchangeService = nilActivityExchangeService{}
+	}
 
 	activityGroup := router.Group("/raffle/activity")
 	activityGroup.GET("/armory", controller.armory)
 	activityGroup.POST("/draw", controller.draw)
 	activityGroup.GET("/query_sku_product_list_by_activity_id", controller.querySkuProductListByActivityID)
 	activityGroup.POST("/query_user_activity_account", controller.queryUserActivityAccount)
+	activityGroup.POST("/credit_pay_exchange_sku", controller.creditPayExchangeSku)
 }
 
 func (c *raffleActivityController) armory(ctx *gin.Context) {
@@ -221,6 +236,26 @@ func (c *raffleActivityController) querySkuProductListByActivityID(ctx *gin.Cont
 	ctx.JSON(stdhttp.StatusOK, types.Success(response))
 }
 
+func (c *raffleActivityController) creditPayExchangeSku(ctx *gin.Context) {
+	var request skuProductShopCartRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.UserID) == "" || request.SKU == 0 {
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeIllegalParam, false))
+		return
+	}
+
+	result, err := c.exchangeService.CreditPayExchangeSku(ctx.Request.Context(), request.UserID, request.SKU)
+	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+			return
+		}
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
+		return
+	}
+	ctx.JSON(stdhttp.StatusOK, types.Success(result))
+}
+
 type nilActivityAccountService struct{}
 
 func (nilActivityAccountService) QueryActivityAccount(ctx context.Context, activityID int64, userID string) (activity.AccountEntity, error) {
@@ -249,4 +284,10 @@ type nilActivityDrawService struct{}
 
 func (nilActivityDrawService) Draw(ctx context.Context, userID string, activityID int64) (activity.DrawResult, error) {
 	return activity.DrawResult{}, errors.New("activity draw service is not configured")
+}
+
+type nilActivityExchangeService struct{}
+
+func (nilActivityExchangeService) CreditPayExchangeSku(ctx context.Context, userID string, sku int64) (bool, error) {
+	return false, errors.New("activity exchange service is not configured")
 }
