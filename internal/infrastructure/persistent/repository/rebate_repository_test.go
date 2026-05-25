@@ -111,6 +111,47 @@ func TestRebateRepositorySaveUserRebateRecordsDuplicate(t *testing.T) {
 	}
 }
 
+func TestRebateRepositorySaveUserRebateRecords(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewRebateRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `user_behavior_rebate_order`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err := repo.SaveUserRebateRecords(context.Background(), []rebate.BehaviorRebateAggregate{
+		{
+			UserID: "xiaofuge",
+			Order: rebate.BehaviorRebateOrderEntity{
+				UserID:        "xiaofuge",
+				OrderID:       "rebate-001",
+				BehaviorType:  rebate.BehaviorTypeSign,
+				RebateDesc:    "签到返利积分",
+				RebateType:    rebate.RebateTypeIntegral,
+				RebateConfig:  "10",
+				OutBusinessNo: "20260525",
+				BizID:         "xiaofuge_integral_20260525",
+			},
+			Task: rebate.TaskEntity{
+				UserID:    "xiaofuge",
+				Topic:     rebate.TopicSendRebate,
+				MessageID: "msg-001",
+				Message:   `{"bizId":"xiaofuge_integral_20260525"}`,
+				State:     rebate.TaskStateCreate,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("save user rebate records: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
 func TestRebateRepositorySaveUserRebateRecordsEmpty(t *testing.T) {
 	db, _ := newMockGormDB(t)
 	repo := NewRebateRepository(db)
