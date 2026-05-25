@@ -84,6 +84,8 @@ GET  /api/v1/raffle/activity/query_user_credit_account?userId=xiaofuge
 POST /api/v1/raffle/activity/credit_pay_exchange_sku
 ```
 
+完整请求示例见 `docs/api.md`。
+
 ## 分库分表配置
 
 默认使用单库单表：
