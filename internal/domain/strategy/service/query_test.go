@@ -78,6 +78,26 @@ func TestQueryServiceQueryRaffleStrategyRuleWeight(t *testing.T) {
 	}
 }
 
+func TestQueryServiceQueryRaffleStrategyRuleWeightEmpty(t *testing.T) {
+	repo := &fakeStrategyQueryRepository{
+		strategyID:     100006,
+		ruleWeightList: []strategy.RuleWeight{},
+	}
+	service := NewQueryService(repo)
+
+	ruleWeights, err := service.QueryRaffleStrategyRuleWeight(context.Background(), 100301, "xiaofuge")
+	if err != nil {
+		t.Fatalf("query raffle strategy rule weight: %v", err)
+	}
+
+	if ruleWeights == nil {
+		t.Fatalf("expected empty slice, got nil")
+	}
+	if len(ruleWeights) != 0 {
+		t.Fatalf("expected empty rule weights, got %d", len(ruleWeights))
+	}
+}
+
 type fakeStrategyQueryRepository struct {
 	strategyID      int64
 	awards          []strategy.StrategyAwardEntity

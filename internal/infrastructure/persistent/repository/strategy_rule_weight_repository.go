@@ -15,7 +15,7 @@ func (r *StrategyRepository) QueryAwardRuleWeight(ctx context.Context, strategyI
 		return nil, err
 	}
 	if strings.TrimSpace(ruleValue) == "" {
-		return nil, nil
+		return []strategy.RuleWeight{}, nil
 	}
 
 	ruleEntity := strategy.StrategyRuleEntity{
@@ -49,7 +49,7 @@ func (r *StrategyRepository) QueryAwardRuleWeight(ctx context.Context, strategyI
 
 func (r *StrategyRepository) queryRuleWeightAwards(ctx context.Context, strategyID int64, awardIDs []int) ([]strategy.RuleWeightAward, error) {
 	if len(awardIDs) == 0 {
-		return nil, nil
+		return []strategy.RuleWeightAward{}, nil
 	}
 
 	var awardPOList []po.StrategyAward
