@@ -19,7 +19,7 @@ func main() {
 		panic(err)
 	}
 
-	logger, err := zap.NewProduction()
+	logger, err := config.NewLogger(cfg.Log)
 	if err != nil {
 		panic(err)
 	}
