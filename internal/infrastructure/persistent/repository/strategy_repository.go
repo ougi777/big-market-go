@@ -17,9 +17,39 @@ type StrategyRepository struct {
 }
 
 var _ strategy.Repository = (*StrategyRepository)(nil)
+var _ strategy.ArmoryRepository = (*StrategyRepository)(nil)
 
 func NewStrategyRepository(db *gorm.DB) *StrategyRepository {
 	return &StrategyRepository{db: db}
+}
+
+func (r *StrategyRepository) QueryStrategyAwardList(ctx context.Context, strategyID int64) ([]strategy.StrategyAwardEntity, error) {
+	var awardPOList []po.StrategyAward
+	err := r.db.WithContext(ctx).
+		Select("strategy_id", "award_id", "award_title", "award_subtitle", "award_count", "award_count_surplus", "award_rate", "rule_models", "sort").
+		Where("strategy_id = ?", strategyID).
+		Order("sort asc").
+		Find(&awardPOList).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	awards := make([]strategy.StrategyAwardEntity, 0, len(awardPOList))
+	for _, awardPO := range awardPOList {
+		awards = append(awards, strategy.StrategyAwardEntity{
+			StrategyID:        awardPO.StrategyID,
+			AwardID:           awardPO.AwardID,
+			AwardTitle:        awardPO.AwardTitle,
+			AwardSubtitle:     awardPO.AwardSubtitle,
+			AwardCount:        awardPO.AwardCount,
+			AwardCountSurplus: awardPO.AwardCountSurplus,
+			AwardRate:         awardPO.AwardRate,
+			Sort:              awardPO.Sort,
+			RuleModels:        awardPO.RuleModels,
+		})
+	}
+	return awards, nil
 }
 
 func (r *StrategyRepository) QueryStrategyEntityByStrategyID(ctx context.Context, strategyID int64) (strategy.StrategyEntity, error) {
@@ -37,9 +67,34 @@ func (r *StrategyRepository) QueryStrategyEntityByStrategyID(ctx context.Context
 	}
 
 	return strategy.StrategyEntity{
-		StrategyID: strategyPO.StrategyID,
-		RuleModel:  strategyPO.RuleModels,
+		StrategyID:   strategyPO.StrategyID,
+		StrategyDesc: strategyPO.StrategyDesc,
+		RuleModel:    strategyPO.RuleModels,
 	}, nil
+}
+
+func (r *StrategyRepository) QueryStrategyRule(ctx context.Context, strategyID int64, ruleModel string) (strategy.StrategyRuleEntity, bool, error) {
+	var strategyRulePO po.StrategyRule
+	err := r.db.WithContext(ctx).
+		Select("strategy_id", "award_id", "rule_type", "rule_model", "rule_value", "rule_desc").
+		Where("strategy_id = ? and rule_model = ?", strategyID, ruleModel).
+		First(&strategyRulePO).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return strategy.StrategyRuleEntity{}, false, nil
+	}
+	if err != nil {
+		return strategy.StrategyRuleEntity{}, false, err
+	}
+
+	return strategy.StrategyRuleEntity{
+		StrategyID: strategyRulePO.StrategyID,
+		AwardID:    strategyRulePO.AwardID,
+		RuleType:   strategyRulePO.RuleType,
+		RuleModel:  strategyRulePO.RuleModel,
+		RuleValue:  strategyRulePO.RuleValue,
+		RuleDesc:   strategyRulePO.RuleDesc,
+	}, true, nil
 }
 
 func (r *StrategyRepository) QueryStrategyRuleValue(ctx context.Context, strategyID int64, ruleModel string) (string, error) {
