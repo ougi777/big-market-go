@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/domain/credit"
 )
 
 func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
@@ -34,9 +35,10 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 		},
 		activityExists: true,
 	}
+	creditRepo := &fakeExchangeCreditRepository{}
 	stock := &fakeExchangeStockService{ok: true}
 	publisher := &fakeExchangePublisher{}
-	service := NewExchangeService(repo, stock, publisher, repo)
+	service := NewExchangeService(repo, stock, publisher, creditRepo)
 	service.now = func() time.Time { return now }
 	service.orderIDGenerator = func() (string, error) { return "123456789012", nil }
 	service.messageIDGenerator = func() (string, error) { return "22222222222", nil }
@@ -50,7 +52,7 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 	if !ok {
 		t.Fatal("expected exchange ok")
 	}
-	if !repo.saved || !repo.completed {
+	if !repo.saved || !creditRepo.completed {
 		t.Fatalf("expected saved and completed")
 	}
 	if stock.sku != 9011 || stock.activityID != 100301 {
@@ -59,11 +61,11 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 	if repo.createAggregate.ActivityOrder.State != activity.ActivityOrderWaitPay {
 		t.Fatalf("expected wait pay order, got %+v", repo.createAggregate.ActivityOrder)
 	}
-	if repo.completeAggregate.CreditOrder.TradeAmount != -1.68 {
-		t.Fatalf("expected credit amount -1.68, got %.2f", repo.completeAggregate.CreditOrder.TradeAmount)
+	if creditRepo.completeAggregate.CreditOrder.TradeAmount != -1.68 {
+		t.Fatalf("expected credit amount -1.68, got %.2f", creditRepo.completeAggregate.CreditOrder.TradeAmount)
 	}
-	if repo.completeAggregate.SendTask.Topic != "credit_adjust_success" || repo.completeAggregate.SendTask.MessageID != "22222222222" {
-		t.Fatalf("expected send task, got %+v", repo.completeAggregate.SendTask)
+	if creditRepo.completeAggregate.SendTask.Topic != "credit_adjust_success" || creditRepo.completeAggregate.SendTask.MessageID != "22222222222" {
+		t.Fatalf("expected send task, got %+v", creditRepo.completeAggregate.SendTask)
 	}
 	if publisher.topic != "credit_adjust_success" {
 		t.Fatalf("expected credit adjust success topic, got %s", publisher.topic)
@@ -88,8 +90,9 @@ func TestExchangeServiceCreditPayExchangeSkuMarksTaskFailOnPublishError(t *testi
 		unpaidExists: true,
 	}
 	stock := &fakeExchangeStockService{ok: true}
+	creditRepo := &fakeExchangeCreditRepository{}
 	publisher := &fakeExchangePublisher{err: errors.New("publish failed")}
-	service := NewExchangeService(repo, stock, publisher, repo)
+	service := NewExchangeService(repo, stock, publisher, creditRepo)
 	service.messageIDGenerator = func() (string, error) { return "22222222222", nil }
 	service.creditOrderGenerator = func() (string, error) { return "111111111111", nil }
 
@@ -117,7 +120,6 @@ type fakeExchangeRepository struct {
 	completedMessageID string
 	failMessageID      string
 	createAggregate    activity.CreateSkuExchangeOrderAggregate
-	completeAggregate  activity.CompleteSkuExchangeAggregate
 }
 
 func (f *fakeExchangeRepository) QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error) {
@@ -138,14 +140,19 @@ func (f *fakeExchangeRepository) SaveCreditPayOrder(ctx context.Context, aggrega
 	return nil
 }
 
-func (f *fakeExchangeRepository) CompleteCreditPayOrder(ctx context.Context, aggregate activity.CompleteSkuExchangeAggregate) error {
-	f.completed = true
-	f.completeAggregate = aggregate
+func (f *fakeExchangeRepository) UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error {
+	f.completedMessageID = messageID
 	return nil
 }
 
-func (f *fakeExchangeRepository) UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error {
-	f.completedMessageID = messageID
+type fakeExchangeCreditRepository struct {
+	completed         bool
+	completeAggregate credit.CompleteSkuExchangeAggregate
+}
+
+func (f *fakeExchangeCreditRepository) CompleteCreditPayOrder(ctx context.Context, aggregate credit.CompleteSkuExchangeAggregate) error {
+	f.completed = true
+	f.completeAggregate = aggregate
 	return nil
 }
 

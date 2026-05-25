@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/domain/credit"
 	"bm-go/internal/domain/rebate"
 )
 
@@ -30,7 +31,8 @@ func TestRebateProcessorProcessSKU(t *testing.T) {
 		},
 		activityExists: true,
 	}
-	processor := NewRebateProcessor(repo, repo)
+	creditRepo := &fakeRebateCreditRepository{}
+	processor := NewRebateProcessor(repo, creditRepo)
 	processor.now = func() time.Time { return now }
 	processor.orderIDGenerator = func() (string, error) { return "123456789012", nil }
 
@@ -60,7 +62,8 @@ func TestRebateProcessorProcessSKU(t *testing.T) {
 
 func TestRebateProcessorProcessIntegral(t *testing.T) {
 	repo := &fakeRebateProcessRepository{}
-	processor := NewRebateProcessor(repo, repo)
+	creditRepo := &fakeRebateCreditRepository{}
+	processor := NewRebateProcessor(repo, creditRepo)
 	processor.orderIDGenerator = func() (string, error) { return "123456789012", nil }
 
 	err := processor.ProcessRebate(context.Background(), rebate.SendRebateMessage{
@@ -73,11 +76,11 @@ func TestRebateProcessorProcessIntegral(t *testing.T) {
 		t.Fatalf("process integral rebate: %v", err)
 	}
 
-	if !repo.savedIntegral {
+	if !creditRepo.savedIntegral {
 		t.Fatalf("expected saved integral rebate")
 	}
-	if repo.integral.TradeAmount != 10 || repo.integral.OutBusinessNo != "xiaofuge_integral_20260525" {
-		t.Fatalf("expected integral order, got %+v", repo.integral)
+	if creditRepo.integral.TradeAmount != 10 || creditRepo.integral.OutBusinessNo != "xiaofuge_integral_20260525" {
+		t.Fatalf("expected integral order, got %+v", creditRepo.integral)
 	}
 }
 
@@ -88,8 +91,6 @@ type fakeRebateProcessRepository struct {
 	activityExists bool
 	savedSKU       bool
 	skuAggregate   activity.CreateRebateSkuOrderAggregate
-	savedIntegral  bool
-	integral       activity.RebateIntegralEntity
 }
 
 func (f *fakeRebateProcessRepository) QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error) {
@@ -106,7 +107,12 @@ func (f *fakeRebateProcessRepository) SaveRebateSkuOrder(ctx context.Context, ag
 	return nil
 }
 
-func (f *fakeRebateProcessRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral activity.RebateIntegralEntity) error {
+type fakeRebateCreditRepository struct {
+	savedIntegral bool
+	integral      credit.RebateIntegralEntity
+}
+
+func (f *fakeRebateCreditRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral credit.RebateIntegralEntity) error {
 	f.savedIntegral = true
 	f.integral = rebateIntegral
 	return nil
