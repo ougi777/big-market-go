@@ -29,6 +29,25 @@ func TestStrategyArmoryRoute(t *testing.T) {
 	}
 }
 
+func TestStrategyArmoryRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ArmoryService: &fakeArmoryService{
+			err: types.NewAppError(types.ResponseCodeStrategyRuleWeightNull, nil),
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/strategy/strategy_armory?strategyId=100001", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_001"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
 func TestRandomRaffleRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		RaffleService: &fakeRaffleService{awardID: 101},
@@ -177,9 +196,14 @@ func TestQueryRaffleStrategyRuleWeightRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
-type fakeArmoryService struct{}
+type fakeArmoryService struct {
+	err error
+}
 
 func (f *fakeArmoryService) AssembleLotteryStrategy(ctx context.Context, strategyID int64) error {
+	if f.err != nil {
+		return f.err
+	}
 	return nil
 }
 

@@ -87,6 +87,46 @@ func TestActivityArmoryRoute(t *testing.T) {
 	}
 }
 
+func TestActivityArmoryRouteReturnsActivityArmoryAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityArmoryService: &fakeActivityArmoryService{
+			err: types.NewAppError(types.ResponseCodeActivityStateError, nil),
+		},
+		ActivityStrategyArmoryService: &fakeActivityStrategyArmoryService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/armory?activityId=100301", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_003"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
+func TestActivityArmoryRouteReturnsStrategyArmoryAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityArmoryService: &fakeActivityArmoryService{},
+		ActivityStrategyArmoryService: &fakeActivityStrategyArmoryService{
+			err: types.NewAppError(types.ResponseCodeUnassembledStrategy, nil),
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/armory?activityId=100301", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_002"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
 func TestActivityDrawRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		ActivityDrawService: &fakeActivityDrawService{
@@ -340,19 +380,27 @@ func (f *fakeActivitySkuProductService) QuerySkuProductListByActivityID(ctx cont
 
 type fakeActivityArmoryService struct {
 	activityID int64
+	err        error
 }
 
 func (f *fakeActivityArmoryService) AssembleActivitySkuByActivityID(ctx context.Context, activityID int64) error {
 	f.activityID = activityID
+	if f.err != nil {
+		return f.err
+	}
 	return nil
 }
 
 type fakeActivityStrategyArmoryService struct {
 	activityID int64
+	err        error
 }
 
 func (f *fakeActivityStrategyArmoryService) AssembleLotteryStrategyByActivityID(ctx context.Context, activityID int64) error {
 	f.activityID = activityID
+	if f.err != nil {
+		return f.err
+	}
 	return nil
 }
 

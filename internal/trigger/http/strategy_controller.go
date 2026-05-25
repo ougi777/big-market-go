@@ -107,6 +107,11 @@ func (c *raffleStrategyController) strategyArmory(ctx *gin.Context) {
 	}
 
 	if err := c.armoryService.AssembleLotteryStrategy(ctx.Request.Context(), request.StrategyID); err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+			return
+		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
 		return
 	}
