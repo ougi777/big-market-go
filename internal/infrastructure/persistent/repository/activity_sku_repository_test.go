@@ -95,3 +95,40 @@ func TestActivityRepositorySaveCreditPayOrderDuplicate(t *testing.T) {
 		t.Fatalf("expectations: %v", err)
 	}
 }
+
+func TestActivityRepositorySaveCreditPayOrder(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewActivityRepository(db)
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `raffle_activity_order`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err := repo.SaveCreditPayOrder(context.Background(), activity.CreateSkuExchangeOrderAggregate{
+		UserID:     "xiaofuge",
+		ActivityID: 100301,
+		ActivityOrder: activity.ActivityOrderEntity{
+			UserID:        "xiaofuge",
+			SKU:           9011,
+			ActivityID:    100301,
+			ActivityName:  "大营销抽奖",
+			StrategyID:    100006,
+			OrderID:       "order-001",
+			OrderTime:     now,
+			TotalCount:    100,
+			DayCount:      10,
+			MonthCount:    30,
+			PayAmount:     1.68,
+			State:         activity.ActivityOrderWaitPay,
+			OutBusinessNo: "biz-001",
+		},
+	})
+	if err != nil {
+		t.Fatalf("save credit pay order: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
