@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"bm-go/internal/domain/strategy"
@@ -41,4 +42,9 @@ func (s *StrategyStore) CacheStrategyAwardCount(ctx context.Context, key string,
 		return nil
 	}
 	return s.client.Set(ctx, key, awardCount, 0).Err()
+}
+
+func (s *StrategyStore) AwardStockConsumeSendQueue(ctx context.Context, strategyID int64, awardID int) error {
+	value := fmt.Sprintf("%d:%d", strategyID, awardID)
+	return s.client.RPush(ctx, types.RedisKeyStrategyAwardCountQueue, value).Err()
 }

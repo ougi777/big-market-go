@@ -15,6 +15,8 @@ var ErrNextChainMissing = errors.New("next logic chain is missing")
 
 type AwardResult struct {
 	AwardID        int
+	AwardTitle     string
+	AwardIndex     int
 	LogicModel     string
 	AwardRuleValue string
 }

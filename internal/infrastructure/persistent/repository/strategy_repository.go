@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bm-go/internal/domain/strategy"
+	treepkg "bm-go/internal/domain/strategy/rule/tree"
 	"bm-go/internal/infrastructure/persistent/po"
 
 	"gorm.io/gorm"
@@ -16,15 +17,26 @@ import (
 var errRepositoryNotImplemented = errors.New("repository method is not implemented")
 
 type StrategyRepository struct {
-	db *gorm.DB
+	db         *gorm.DB
+	stockQueue AwardStockQueue
+}
+
+type AwardStockQueue interface {
+	AwardStockConsumeSendQueue(ctx context.Context, strategyID int64, awardID int) error
 }
 
 var _ strategy.Repository = (*StrategyRepository)(nil)
 var _ strategy.ArmoryRepository = (*StrategyRepository)(nil)
 var _ strategy.QueryRepository = (*StrategyRepository)(nil)
+var _ strategy.RaffleRepository = (*StrategyRepository)(nil)
+var _ treepkg.Repository = (*StrategyRepository)(nil)
 
-func NewStrategyRepository(db *gorm.DB) *StrategyRepository {
-	return &StrategyRepository{db: db}
+func NewStrategyRepository(db *gorm.DB, stockQueues ...AwardStockQueue) *StrategyRepository {
+	var stockQueue AwardStockQueue
+	if len(stockQueues) > 0 {
+		stockQueue = stockQueues[0]
+	}
+	return &StrategyRepository{db: db, stockQueue: stockQueue}
 }
 
 func (r *StrategyRepository) QueryStrategyAwardList(ctx context.Context, strategyID int64) ([]strategy.StrategyAwardEntity, error) {
@@ -98,6 +110,112 @@ func (r *StrategyRepository) QueryStrategyRule(ctx context.Context, strategyID i
 		RuleModel:  strategyRulePO.RuleModel,
 		RuleValue:  strategyRulePO.RuleValue,
 		RuleDesc:   strategyRulePO.RuleDesc,
+	}, true, nil
+}
+
+func (r *StrategyRepository) QueryStrategyAwardRuleModels(ctx context.Context, strategyID int64, awardID int) (string, error) {
+	var awardPO po.StrategyAward
+	err := r.db.WithContext(ctx).
+		Select("rule_models").
+		Where("strategy_id = ? and award_id = ?", strategyID, awardID).
+		First(&awardPO).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return awardPO.RuleModels, nil
+}
+
+func (r *StrategyRepository) QueryStrategyAwardEntity(ctx context.Context, strategyID int64, awardID int) (strategy.StrategyAwardEntity, bool, error) {
+	var awardPO po.StrategyAward
+	err := r.db.WithContext(ctx).
+		Select("strategy_id", "award_id", "award_title", "award_subtitle", "award_count", "award_count_surplus", "award_rate", "rule_models", "sort").
+		Where("strategy_id = ? and award_id = ?", strategyID, awardID).
+		First(&awardPO).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return strategy.StrategyAwardEntity{}, false, nil
+	}
+	if err != nil {
+		return strategy.StrategyAwardEntity{}, false, err
+	}
+
+	return strategy.StrategyAwardEntity{
+		StrategyID:        awardPO.StrategyID,
+		AwardID:           awardPO.AwardID,
+		AwardTitle:        awardPO.AwardTitle,
+		AwardSubtitle:     awardPO.AwardSubtitle,
+		AwardCount:        awardPO.AwardCount,
+		AwardCountSurplus: awardPO.AwardCountSurplus,
+		AwardRate:         awardPO.AwardRate,
+		Sort:              awardPO.Sort,
+		RuleModels:        awardPO.RuleModels,
+	}, true, nil
+}
+
+func (r *StrategyRepository) QueryRuleTreeByTreeID(ctx context.Context, treeID string) (treepkg.RuleTree, bool, error) {
+	var ruleTreePO po.RuleTree
+	err := r.db.WithContext(ctx).
+		Select("tree_id", "tree_name", "tree_desc", "tree_node_rule_key").
+		Where("tree_id = ?", treeID).
+		First(&ruleTreePO).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return treepkg.RuleTree{}, false, nil
+	}
+	if err != nil {
+		return treepkg.RuleTree{}, false, err
+	}
+
+	var nodePOList []po.RuleTreeNode
+	if err := r.db.WithContext(ctx).
+		Select("tree_id", "rule_key", "rule_desc", "rule_value").
+		Where("tree_id = ?", treeID).
+		Find(&nodePOList).
+		Error; err != nil {
+		return treepkg.RuleTree{}, false, err
+	}
+
+	var linePOList []po.RuleTreeNodeLine
+	if err := r.db.WithContext(ctx).
+		Select("tree_id", "rule_node_from", "rule_node_to", "rule_limit_type", "rule_limit_value").
+		Where("tree_id = ?", treeID).
+		Find(&linePOList).
+		Error; err != nil {
+		return treepkg.RuleTree{}, false, err
+	}
+
+	lineMap := make(map[string][]treepkg.RuleTreeNodeLine)
+	for _, linePO := range linePOList {
+		lineMap[linePO.RuleNodeFrom] = append(lineMap[linePO.RuleNodeFrom], treepkg.RuleTreeNodeLine{
+			TreeID:         linePO.TreeID,
+			RuleNodeFrom:   linePO.RuleNodeFrom,
+			RuleNodeTo:     linePO.RuleNodeTo,
+			RuleLimitType:  linePO.RuleLimitType,
+			RuleLimitValue: linePO.RuleLimitValue,
+		})
+	}
+
+	nodeMap := make(map[string]treepkg.RuleTreeNode, len(nodePOList))
+	for _, nodePO := range nodePOList {
+		nodeMap[nodePO.RuleKey] = treepkg.RuleTreeNode{
+			TreeID:    nodePO.TreeID,
+			RuleKey:   nodePO.RuleKey,
+			RuleDesc:  nodePO.RuleDesc,
+			RuleValue: nodePO.RuleValue,
+			Lines:     lineMap[nodePO.RuleKey],
+		}
+	}
+
+	return treepkg.RuleTree{
+		TreeID:   ruleTreePO.TreeID,
+		TreeName: ruleTreePO.TreeName,
+		TreeDesc: ruleTreePO.TreeDesc,
+		RootRule: ruleTreePO.TreeRootRuleKey,
+		NodeMap:  nodeMap,
 	}, true, nil
 }
 
@@ -203,6 +321,40 @@ func (r *StrategyRepository) QueryRaffleActivityAccountDayPartakeCount(ctx conte
 		return 0, err
 	}
 	return accountDayPO.DayCount - accountDayPO.DayCountSurplus, nil
+}
+
+func (r *StrategyRepository) QueryTodayUserRaffleCount(ctx context.Context, userID string, strategyID int64) (int, error) {
+	activityID, err := r.queryActivityIDByStrategyID(ctx, strategyID)
+	if err != nil {
+		return 0, err
+	}
+	if activityID == 0 {
+		return 0, nil
+	}
+	return r.QueryRaffleActivityAccountDayPartakeCount(ctx, activityID, userID)
+}
+
+func (r *StrategyRepository) AwardStockConsumeSendQueue(ctx context.Context, strategyID int64, awardID int) error {
+	if r.stockQueue != nil {
+		return r.stockQueue.AwardStockConsumeSendQueue(ctx, strategyID, awardID)
+	}
+	return nil
+}
+
+func (r *StrategyRepository) queryActivityIDByStrategyID(ctx context.Context, strategyID int64) (int64, error) {
+	var activityPO po.RaffleActivity
+	err := r.db.WithContext(ctx).
+		Select("activity_id").
+		Where("strategy_id = ?", strategyID).
+		First(&activityPO).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return activityPO.ActivityID, nil
 }
 
 func (r *StrategyRepository) QueryRaffleActivityAccountPartakeCount(ctx context.Context, activityID int64, userID string) (int, error) {

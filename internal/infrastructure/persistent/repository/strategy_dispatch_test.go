@@ -63,3 +63,15 @@ func (f *fakeRateTableStore) Get(ctx context.Context, key string) (string, error
 func (f *fakeRateTableStore) HGet(ctx context.Context, key string, field string) (string, error) {
 	return f.hashes[key][field], nil
 }
+
+func (f *fakeRateTableStore) Decr(ctx context.Context, key string) (int64, error) {
+	return 0, nil
+}
+
+func (f *fakeRateTableStore) Set(ctx context.Context, key string, value string) error {
+	return nil
+}
+
+func (f *fakeRateTableStore) SetNX(ctx context.Context, key string, value string) (bool, error) {
+	return true, nil
+}

@@ -11,6 +11,7 @@ import (
 
 	"bm-go/internal/config"
 	"bm-go/internal/domain/strategy/rule/chain"
+	"bm-go/internal/domain/strategy/rule/tree"
 	strategyservice "bm-go/internal/domain/strategy/service"
 	"bm-go/internal/infrastructure/persistent/mysql"
 	"bm-go/internal/infrastructure/persistent/repository"
@@ -38,12 +39,17 @@ func main() {
 	}
 	redisClient := infrredis.NewClient(cfg.Redis)
 
-	strategyRepository := repository.NewStrategyRepository(db)
 	strategyStore := infrredis.NewStrategyStore(redisClient)
+	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
 	strategyDispatch := repository.NewStrategyDispatch(redisClient)
 	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
+	treeNodes := map[string]tree.Node{
+		tree.RuleLock:      tree.NewLockNode(strategyRepository),
+		tree.RuleStock:     tree.NewStockNode(strategyRepository, strategyDispatch),
+		tree.RuleLuckAward: tree.NewLuckAwardNode(strategyRepository),
+	}
 	armoryService := strategyservice.NewArmoryService(strategyRepository, strategyStore)
-	raffleService := strategyservice.NewRaffleService(chainFactory)
+	raffleService := strategyservice.NewRaffleService(chainFactory, strategyRepository, treeNodes)
 	queryService := strategyservice.NewQueryService(strategyRepository)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{

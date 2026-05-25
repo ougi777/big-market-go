@@ -129,7 +129,7 @@ func (c *raffleStrategyController) randomRaffle(ctx *gin.Context) {
 
 	ctx.JSON(stdhttp.StatusOK, types.Success(raffleStrategyResponse{
 		AwardID:    result.AwardID,
-		AwardIndex: 0,
+		AwardIndex: result.AwardIndex,
 	}))
 }
 

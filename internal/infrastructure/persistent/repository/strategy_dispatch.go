@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"bm-go/internal/domain/strategy"
+	"bm-go/internal/domain/strategy/rule/tree"
 	"bm-go/internal/types"
 
 	"github.com/redis/go-redis/v9"
@@ -16,6 +17,9 @@ import (
 type RateTableStore interface {
 	Get(ctx context.Context, key string) (string, error)
 	HGet(ctx context.Context, key string, field string) (string, error)
+	Decr(ctx context.Context, key string) (int64, error)
+	Set(ctx context.Context, key string, value string) error
+	SetNX(ctx context.Context, key string, value string) (bool, error)
 }
 
 type redisRateTableStore struct {
@@ -30,11 +34,24 @@ func (s *redisRateTableStore) HGet(ctx context.Context, key string, field string
 	return s.client.HGet(ctx, key, field).Result()
 }
 
+func (s *redisRateTableStore) Decr(ctx context.Context, key string) (int64, error) {
+	return s.client.Decr(ctx, key).Result()
+}
+
+func (s *redisRateTableStore) Set(ctx context.Context, key string, value string) error {
+	return s.client.Set(ctx, key, value, 0).Err()
+}
+
+func (s *redisRateTableStore) SetNX(ctx context.Context, key string, value string) (bool, error) {
+	return s.client.SetNX(ctx, key, value, 0).Result()
+}
+
 type StrategyDispatch struct {
 	store RateTableStore
 }
 
 var _ strategy.Dispatch = (*StrategyDispatch)(nil)
+var _ tree.StockDispatch = (*StrategyDispatch)(nil)
 
 func NewStrategyDispatch(redisClient *redis.Client) *StrategyDispatch {
 	return NewStrategyDispatchWithStore(&redisRateTableStore{client: redisClient})
@@ -50,6 +67,27 @@ func (d *StrategyDispatch) GetRandomAwardID(ctx context.Context, strategyID int6
 		key = key + types.Underline + ruleWeightValue[0]
 	}
 	return d.getRandomAwardID(ctx, key)
+}
+
+func (d *StrategyDispatch) SubtractionAwardStock(ctx context.Context, strategyID int64, awardID int) (bool, error) {
+	if d.store == nil {
+		return false, errRepositoryNotImplemented
+	}
+
+	cacheKey := types.RedisKeyStrategyAwardCount + strconv.FormatInt(strategyID, 10) + types.Underline + strconv.Itoa(awardID)
+	surplus, err := d.store.Decr(ctx, cacheKey)
+	if err != nil {
+		return false, err
+	}
+	if surplus < 0 {
+		if err := d.store.Set(ctx, cacheKey, "0"); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+
+	lockKey := cacheKey + types.Underline + strconv.FormatInt(surplus, 10)
+	return d.store.SetNX(ctx, lockKey, "lock")
 }
 
 func (d *StrategyDispatch) getRandomAwardID(ctx context.Context, key string) (int, error) {

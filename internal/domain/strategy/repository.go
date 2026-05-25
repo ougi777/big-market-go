@@ -1,6 +1,10 @@
 package strategy
 
-import "context"
+import (
+	"context"
+
+	"bm-go/internal/domain/strategy/rule/tree"
+)
 
 type Repository interface {
 	QueryStrategyEntityByStrategyID(ctx context.Context, strategyID int64) (StrategyEntity, error)
@@ -30,4 +34,10 @@ type RateTableStore interface {
 
 type Dispatch interface {
 	GetRandomAwardID(ctx context.Context, strategyID int64, ruleWeightValue ...string) (int, error)
+}
+
+type RaffleRepository interface {
+	QueryStrategyAwardRuleModels(ctx context.Context, strategyID int64, awardID int) (string, error)
+	QueryRuleTreeByTreeID(ctx context.Context, treeID string) (tree.RuleTree, bool, error)
+	QueryStrategyAwardEntity(ctx context.Context, strategyID int64, awardID int) (StrategyAwardEntity, bool, error)
 }
