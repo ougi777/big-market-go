@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/types"
 )
 
 func TestPartakeServiceCreateOrder(t *testing.T) {
@@ -95,6 +97,90 @@ func TestPartakeServiceCreateOrderReturnExisting(t *testing.T) {
 	}
 }
 
+func TestPartakeServiceCreateOrderActivityStateError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := &fakePartakeRepository{
+		activity: activity.ActivityEntity{
+			BeginDateTime: now.Add(-time.Hour),
+			EndDateTime:   now.Add(time.Hour),
+			State:         "close",
+		},
+		activityExists: true,
+	}
+	service := NewPartakeService(repo)
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreateOrder(context.Background(), "xiaofuge", 100301)
+	assertAppErrorCode(t, err, types.ResponseCodeActivityStateError)
+}
+
+func TestPartakeServiceCreateOrderActivityDateError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := &fakePartakeRepository{
+		activity: activity.ActivityEntity{
+			BeginDateTime: now.Add(time.Hour),
+			EndDateTime:   now.Add(2 * time.Hour),
+			State:         activity.ActivityStateOpen,
+		},
+		activityExists: true,
+	}
+	service := NewPartakeService(repo)
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreateOrder(context.Background(), "xiaofuge", 100301)
+	assertAppErrorCode(t, err, types.ResponseCodeActivityDateError)
+}
+
+func TestPartakeServiceCreateOrderAccountQuotaError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := &fakePartakeRepository{
+		activity: activity.ActivityEntity{
+			BeginDateTime: now.Add(-time.Hour),
+			EndDateTime:   now.Add(time.Hour),
+			State:         activity.ActivityStateOpen,
+		},
+		activityExists: true,
+		account: activity.AccountEntity{
+			TotalCount:        10,
+			TotalCountSurplus: 0,
+		},
+		accountExists: true,
+	}
+	service := NewPartakeService(repo)
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreateOrder(context.Background(), "xiaofuge", 100301)
+	assertAppErrorCode(t, err, types.ResponseCodeAccountQuotaError)
+}
+
+func TestPartakeServiceCreateOrderDayQuotaError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := &fakePartakeRepository{
+		activity: activity.ActivityEntity{
+			BeginDateTime: now.Add(-time.Hour),
+			EndDateTime:   now.Add(time.Hour),
+			State:         activity.ActivityStateOpen,
+		},
+		activityExists: true,
+		account: activity.AccountEntity{
+			TotalCountSurplus: 9,
+			DayCount:          3,
+			MonthCount:        8,
+		},
+		accountExists: true,
+		day: activity.AccountDayEntity{
+			DayCount:        3,
+			DayCountSurplus: 0,
+		},
+		dayExists: true,
+	}
+	service := NewPartakeService(repo)
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreateOrder(context.Background(), "xiaofuge", 100301)
+	assertAppErrorCode(t, err, types.ResponseCodeAccountDayQuotaError)
+}
+
 type fakePartakeRepository struct {
 	activity            activity.ActivityEntity
 	activityExists      bool
@@ -134,4 +220,16 @@ func (f *fakePartakeRepository) SaveCreatePartakeOrder(ctx context.Context, aggr
 	f.saved = true
 	f.aggregate = aggregate
 	return nil
+}
+
+func assertAppErrorCode(t *testing.T, err error, code types.ResponseCode) {
+	t.Helper()
+
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != code {
+		t.Fatalf("expected code %s, got %s", code.Code, appErr.Code.Code)
+	}
 }
