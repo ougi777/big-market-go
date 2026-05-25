@@ -181,6 +181,84 @@ func TestPartakeServiceCreateOrderDayQuotaError(t *testing.T) {
 	assertAppErrorCode(t, err, types.ResponseCodeAccountDayQuotaError)
 }
 
+func TestPartakeServiceCreateOrderMonthQuotaError(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := &fakePartakeRepository{
+		activity: activity.ActivityEntity{
+			BeginDateTime: now.Add(-time.Hour),
+			EndDateTime:   now.Add(time.Hour),
+			State:         activity.ActivityStateOpen,
+		},
+		activityExists: true,
+		account: activity.AccountEntity{
+			TotalCountSurplus: 9,
+			DayCount:          3,
+			MonthCount:        8,
+		},
+		accountExists: true,
+		month: activity.AccountMonthEntity{
+			MonthCount:        8,
+			MonthCountSurplus: 0,
+		},
+		monthExists: true,
+	}
+	service := NewPartakeService(repo)
+	service.now = func() time.Time { return now }
+
+	_, err := service.CreateOrder(context.Background(), "xiaofuge", 100301)
+	assertAppErrorCode(t, err, types.ResponseCodeAccountMonthQuotaError)
+}
+
+func TestPartakeServiceCreateOrderUsesExistingMonthAndDayAccounts(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+	repo := &fakePartakeRepository{
+		activity: activity.ActivityEntity{
+			ActivityID:    100301,
+			ActivityName:  "测试活动",
+			BeginDateTime: now.Add(-time.Hour),
+			EndDateTime:   now.Add(time.Hour),
+			StrategyID:    100006,
+			State:         activity.ActivityStateOpen,
+		},
+		activityExists: true,
+		account: activity.AccountEntity{
+			TotalCountSurplus: 9,
+			DayCount:          3,
+			MonthCount:        8,
+		},
+		accountExists: true,
+		month: activity.AccountMonthEntity{
+			Month:             "2026-05",
+			MonthCount:        8,
+			MonthCountSurplus: 6,
+		},
+		monthExists: true,
+		day: activity.AccountDayEntity{
+			Day:             "2026-05-25",
+			DayCount:        3,
+			DayCountSurplus: 2,
+		},
+		dayExists: true,
+	}
+	service := NewPartakeService(repo)
+	service.now = func() time.Time { return now }
+	service.orderIDGenerator = func() (string, error) { return "123456789012", nil }
+
+	_, err := service.CreateOrder(context.Background(), "xiaofuge", 100301)
+	if err != nil {
+		t.Fatalf("create order: %v", err)
+	}
+	if !repo.aggregate.ExistAccountMonth || !repo.aggregate.ExistAccountDay {
+		t.Fatalf("expected existing month and day accounts")
+	}
+	if repo.aggregate.ActivityAccountMonth.MonthCountSurplus != 6 {
+		t.Fatalf("expected existing month surplus 6, got %d", repo.aggregate.ActivityAccountMonth.MonthCountSurplus)
+	}
+	if repo.aggregate.ActivityAccountDay.DayCountSurplus != 2 {
+		t.Fatalf("expected existing day surplus 2, got %d", repo.aggregate.ActivityAccountDay.DayCountSurplus)
+	}
+}
+
 type fakePartakeRepository struct {
 	activity            activity.ActivityEntity
 	activityExists      bool
