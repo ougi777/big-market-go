@@ -21,6 +21,7 @@ import (
 	infrredis "bm-go/internal/infrastructure/redis"
 	triggerhttp "bm-go/internal/trigger/http"
 	triggerjob "bm-go/internal/trigger/job"
+	triggerlistener "bm-go/internal/trigger/listener"
 
 	"go.uber.org/zap"
 )
@@ -100,6 +101,13 @@ func main() {
 	}
 	scheduler.Start()
 
+	sendAwardConsumer := triggerlistener.NewSendAwardConsumer(rabbitmqClient, awardService, logger)
+	consumerCtx, stopConsumer := context.WithCancel(context.Background())
+	defer stopConsumer()
+	if err := sendAwardConsumer.Start(consumerCtx); err != nil {
+		logger.Fatal("start send award consumer failed", zap.Error(err))
+	}
+
 	go func() {
 		logger.Info("big-market go service started", zap.String("addr", cfg.HTTPAddr()))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -110,6 +118,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	_ = sendAwardConsumer.Stop(context.Background())
 	scheduler.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

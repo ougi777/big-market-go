@@ -50,12 +50,58 @@ func TestAwardServiceSaveUserAwardRecord(t *testing.T) {
 	}
 }
 
+func TestAwardServiceDistributeAward(t *testing.T) {
+	repo := &fakeAwardRepository{
+		awardKey: award.AwardKeyUserCreditRand,
+	}
+	service := NewAwardService(repo, nil, nil)
+	service.creditGenerator = func(min float64, max float64) (float64, error) {
+		if min != 0.01 || max != 1 {
+			t.Fatalf("expected credit range 0.01/1, got %.2f/%.2f", min, max)
+		}
+		return 0.58, nil
+	}
+
+	err := service.DistributeAward(context.Background(), award.DistributeAwardEntity{
+		UserID:      "xiaofuge",
+		OrderID:     "order-001",
+		AwardID:     101,
+		AwardConfig: "0.01,1",
+	})
+	if err != nil {
+		t.Fatalf("distribute award: %v", err)
+	}
+
+	if repo.aggregate.UserAwardRecord.AwardState != award.AwardStateComplete {
+		t.Fatalf("expected award completed, got %s", repo.aggregate.UserAwardRecord.AwardState)
+	}
+	if repo.aggregate.UserCreditAward.CreditAmount != 0.58 {
+		t.Fatalf("expected credit amount 0.58, got %.2f", repo.aggregate.UserCreditAward.CreditAmount)
+	}
+}
+
 type fakeAwardRepository struct {
-	record award.UserAwardRecordEntity
+	record      award.UserAwardRecordEntity
+	awardKey    string
+	awardConfig string
+	aggregate   award.GiveOutPrizesAggregate
 }
 
 func (f *fakeAwardRepository) SaveUserAwardRecord(ctx context.Context, record award.UserAwardRecordEntity) error {
 	f.record = record
+	return nil
+}
+
+func (f *fakeAwardRepository) QueryAwardConfig(ctx context.Context, awardID int) (string, error) {
+	return f.awardConfig, nil
+}
+
+func (f *fakeAwardRepository) QueryAwardKey(ctx context.Context, awardID int) (string, error) {
+	return f.awardKey, nil
+}
+
+func (f *fakeAwardRepository) SaveGiveOutPrizes(ctx context.Context, aggregate award.GiveOutPrizesAggregate) error {
+	f.aggregate = aggregate
 	return nil
 }
 

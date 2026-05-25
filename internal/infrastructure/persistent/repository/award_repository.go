@@ -67,6 +67,76 @@ func (r *AwardRepository) SaveUserAwardRecord(ctx context.Context, record award.
 	})
 }
 
+func (r *AwardRepository) QueryAwardConfig(ctx context.Context, awardID int) (string, error) {
+	var awardPO po.Award
+	err := r.db.WithContext(ctx).
+		Select("award_config").
+		Where("award_id = ?", awardID).
+		Take(&awardPO).
+		Error
+	if err != nil {
+		return "", err
+	}
+	return awardPO.AwardConfig, nil
+}
+
+func (r *AwardRepository) QueryAwardKey(ctx context.Context, awardID int) (string, error) {
+	var awardPO po.Award
+	err := r.db.WithContext(ctx).
+		Select("award_key").
+		Where("award_id = ?", awardID).
+		Take(&awardPO).
+		Error
+	if err != nil {
+		return "", err
+	}
+	return awardPO.AwardKey, nil
+}
+
+func (r *AwardRepository) SaveGiveOutPrizes(ctx context.Context, aggregate award.GiveOutPrizesAggregate) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		now := time.Now()
+		creditPO := po.UserCreditAccount{
+			UserID:          aggregate.UserCreditAward.UserID,
+			TotalAmount:     aggregate.UserCreditAward.CreditAmount,
+			AvailableAmount: aggregate.UserCreditAward.CreditAmount,
+			AccountStatus:   award.AccountStatusOpen,
+			CreateTime:      now,
+			UpdateTime:      now,
+		}
+
+		updateCredit := tx.Model(&po.UserCreditAccount{}).
+			Where("user_id = ?", aggregate.UserCreditAward.UserID).
+			Updates(map[string]any{
+				"total_amount":     gorm.Expr("total_amount + ?", aggregate.UserCreditAward.CreditAmount),
+				"available_amount": gorm.Expr("available_amount + ?", aggregate.UserCreditAward.CreditAmount),
+				"update_time":      now,
+			})
+		if updateCredit.Error != nil {
+			return updateCredit.Error
+		}
+		if updateCredit.RowsAffected == 0 {
+			if err := tx.Create(&creditPO).Error; err != nil {
+				return types.NewAppError(types.ResponseCodeIndexDup, err)
+			}
+		}
+
+		updateAward := tx.Model(&po.UserAwardRecord{}).
+			Where("user_id = ? and order_id = ? and award_state = ?", aggregate.UserAwardRecord.UserID, aggregate.UserAwardRecord.OrderID, award.AwardStateCreate).
+			Updates(map[string]any{
+				"award_state": aggregate.UserAwardRecord.AwardState,
+				"update_time": now,
+			})
+		if updateAward.Error != nil {
+			return updateAward.Error
+		}
+		if updateAward.RowsAffected != 1 {
+			return types.NewAppError(types.ResponseCodeActivityOrderStateError, nil)
+		}
+		return nil
+	})
+}
+
 func (r *AwardRepository) QueryNoSendMessageTaskList(ctx context.Context, limit int) ([]award.TaskEntity, error) {
 	if limit <= 0 {
 		limit = 10

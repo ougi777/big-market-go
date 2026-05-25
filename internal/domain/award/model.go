@@ -3,13 +3,15 @@ package award
 import "time"
 
 const (
-	AwardStateCreate   = "create"
-	AwardStateComplete = "complete"
-	AwardStateFail     = "fail"
-	TaskStateCreate    = "create"
-	TaskStateCompleted = "completed"
-	TaskStateFail      = "fail"
-	TopicSendAward     = "send_award"
+	AwardStateCreate       = "create"
+	AwardStateComplete     = "completed"
+	AwardStateFail         = "fail"
+	AwardKeyUserCreditRand = "user_credit_random"
+	AccountStatusOpen      = "open"
+	TaskStateCreate        = "create"
+	TaskStateCompleted     = "completed"
+	TaskStateFail          = "fail"
+	TopicSendAward         = "send_award"
 )
 
 type UserAwardRecordEntity struct {
@@ -45,4 +47,22 @@ type TaskEntity struct {
 	MessageID string
 	Message   string
 	State     string
+}
+
+type DistributeAwardEntity struct {
+	UserID      string
+	OrderID     string
+	AwardID     int
+	AwardConfig string
+}
+
+type UserCreditAwardEntity struct {
+	UserID       string
+	CreditAmount float64
+}
+
+type GiveOutPrizesAggregate struct {
+	UserID          string
+	UserAwardRecord UserAwardRecordEntity
+	UserCreditAward UserCreditAwardEntity
 }

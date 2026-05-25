@@ -45,3 +45,40 @@ func (c *Client) Publish(ctx context.Context, topic string, message string) erro
 		Body:        []byte(message),
 	})
 }
+
+func (c *Client) Consume(ctx context.Context, topic string, handler func(context.Context, string) error) error {
+	ch, err := c.conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	if _, err := ch.QueueDeclare(topic, true, false, false, false, nil); err != nil {
+		_ = ch.Close()
+		return err
+	}
+	deliveries, err := ch.Consume(topic, "", false, false, false, false, nil)
+	if err != nil {
+		_ = ch.Close()
+		return err
+	}
+
+	go func() {
+		defer func() { _ = ch.Close() }()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case delivery, ok := <-deliveries:
+				if !ok {
+					return
+				}
+				if err := handler(ctx, string(delivery.Body)); err != nil {
+					_ = delivery.Nack(false, true)
+					continue
+				}
+				_ = delivery.Ack(false)
+			}
+		}
+	}()
+	return nil
+}
