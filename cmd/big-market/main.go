@@ -16,6 +16,7 @@ import (
 	"bm-go/internal/domain/strategy/rule/chain"
 	"bm-go/internal/domain/strategy/rule/tree"
 	strategyservice "bm-go/internal/domain/strategy/service"
+	taskservice "bm-go/internal/domain/task/service"
 	"bm-go/internal/infrastructure/persistent/mysql"
 	"bm-go/internal/infrastructure/persistent/repository"
 	"bm-go/internal/infrastructure/persistent/sharding"
@@ -79,7 +80,7 @@ func main() {
 	activityRebateProcessor := activityservice.NewRebateProcessor(activityRepository)
 	activityDeliveryService := activityservice.NewDeliveryService(activityRepository)
 	awardService := awardservice.NewAwardService(awardRepository, awardRepository, rabbitmqClient)
-	taskService := awardservice.NewTaskService(awardRepository, rabbitmqClient)
+	taskService := taskservice.NewService(awardRepository, rabbitmqClient)
 	rebateService := rebateservice.NewRebateService(rebateRepository, rabbitmqClient)
 	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
 

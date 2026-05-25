@@ -6,6 +6,7 @@ import (
 
 	"bm-go/internal/domain/activity"
 	"bm-go/internal/domain/award"
+	taskdomain "bm-go/internal/domain/task"
 	"bm-go/internal/infrastructure/persistent/po"
 	"bm-go/internal/infrastructure/persistent/sharding"
 	"bm-go/internal/types"
@@ -20,6 +21,7 @@ type AwardRepository struct {
 
 var _ award.Repository = (*AwardRepository)(nil)
 var _ award.TaskRepository = (*AwardRepository)(nil)
+var _ taskdomain.Repository = (*AwardRepository)(nil)
 
 func NewAwardRepository(db *gorm.DB, routers ...sharding.Router) *AwardRepository {
 	return NewAwardRepositoryWithDBRouter(singleDBRouter{db: db}, routers...)
@@ -169,12 +171,12 @@ func (r *AwardRepository) SaveGiveOutPrizes(ctx context.Context, aggregate award
 	})
 }
 
-func (r *AwardRepository) QueryNoSendMessageTaskList(ctx context.Context, limit int) ([]award.TaskEntity, error) {
+func (r *AwardRepository) QueryNoSendMessageTaskList(ctx context.Context, limit int) ([]taskdomain.Entity, error) {
 	if limit <= 0 {
 		limit = 10
 	}
 
-	tasks := make([]award.TaskEntity, 0, limit)
+	tasks := make([]taskdomain.Entity, 0, limit)
 	for _, db := range r.taskDBs(ctx) {
 		remaining := limit - len(tasks)
 		if remaining <= 0 {
@@ -193,7 +195,7 @@ func (r *AwardRepository) QueryNoSendMessageTaskList(ctx context.Context, limit 
 		}
 
 		for _, taskPO := range taskPOList {
-			tasks = append(tasks, award.TaskEntity{
+			tasks = append(tasks, taskdomain.Entity{
 				UserID:    taskPO.UserID,
 				Topic:     taskPO.Topic,
 				MessageID: taskPO.MessageID,

@@ -2,15 +2,17 @@ package award
 
 import "time"
 
+import taskdomain "bm-go/internal/domain/task"
+
 const (
 	AwardStateCreate       = "create"
 	AwardStateComplete     = "completed"
 	AwardStateFail         = "fail"
 	AwardKeyUserCreditRand = "user_credit_random"
 	AccountStatusOpen      = "open"
-	TaskStateCreate        = "create"
-	TaskStateCompleted     = "completed"
-	TaskStateFail          = "fail"
+	TaskStateCreate        = taskdomain.StateCreate
+	TaskStateCompleted     = taskdomain.StateCompleted
+	TaskStateFail          = taskdomain.StateFail
 	TopicSendAward         = "send_award"
 )
 
@@ -41,13 +43,7 @@ type EventMessage[T any] struct {
 	Data      T      `json:"data"`
 }
 
-type TaskEntity struct {
-	UserID    string
-	Topic     string
-	MessageID string
-	Message   string
-	State     string
-}
+type TaskEntity = taskdomain.Entity
 
 type DistributeAwardEntity struct {
 	UserID      string
