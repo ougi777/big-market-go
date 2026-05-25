@@ -8,6 +8,7 @@ import (
 	"bm-go/internal/domain/activity"
 	"bm-go/internal/domain/credit"
 	"bm-go/internal/domain/rebate"
+	"bm-go/internal/types"
 )
 
 func TestRebateProcessorProcessSKU(t *testing.T) {
@@ -82,6 +83,75 @@ func TestRebateProcessorProcessIntegral(t *testing.T) {
 	if creditRepo.integral.TradeAmount != 10 || creditRepo.integral.OutBusinessNo != "xiaofuge_integral_20260525" {
 		t.Fatalf("expected integral order, got %+v", creditRepo.integral)
 	}
+}
+
+func TestRebateProcessorProcessRebateIllegalParam(t *testing.T) {
+	processor := NewRebateProcessor(&fakeRebateProcessRepository{}, &fakeRebateCreditRepository{})
+
+	err := processor.ProcessRebate(context.Background(), rebate.SendRebateMessage{
+		UserID:     "",
+		RebateType: rebate.RebateTypeIntegral,
+		BizID:      "biz-001",
+	})
+	assertAppErrorCode(t, err, types.ResponseCodeIllegalParam)
+}
+
+func TestRebateProcessorProcessRebateUnknownType(t *testing.T) {
+	processor := NewRebateProcessor(&fakeRebateProcessRepository{}, &fakeRebateCreditRepository{})
+
+	err := processor.ProcessRebate(context.Background(), rebate.SendRebateMessage{
+		UserID:     "xiaofuge",
+		RebateType: "unknown",
+		BizID:      "biz-001",
+	})
+	assertAppErrorCode(t, err, types.ResponseCodeIllegalParam)
+}
+
+func TestRebateProcessorProcessSKUInvalidConfig(t *testing.T) {
+	processor := NewRebateProcessor(&fakeRebateProcessRepository{}, &fakeRebateCreditRepository{})
+
+	err := processor.ProcessRebate(context.Background(), rebate.SendRebateMessage{
+		UserID:       "xiaofuge",
+		RebateType:   rebate.RebateTypeSKU,
+		RebateConfig: "abc",
+		BizID:        "biz-001",
+	})
+	assertAppErrorCode(t, err, types.ResponseCodeIllegalParam)
+}
+
+func TestRebateProcessorProcessIntegralInvalidAmount(t *testing.T) {
+	processor := NewRebateProcessor(&fakeRebateProcessRepository{}, &fakeRebateCreditRepository{})
+
+	err := processor.ProcessRebate(context.Background(), rebate.SendRebateMessage{
+		UserID:       "xiaofuge",
+		RebateType:   rebate.RebateTypeIntegral,
+		RebateConfig: "0",
+		BizID:        "biz-001",
+	})
+	assertAppErrorCode(t, err, types.ResponseCodeIllegalParam)
+}
+
+func TestRebateProcessorProcessSKUActivityStateError(t *testing.T) {
+	repo := &fakeRebateProcessRepository{
+		product: activity.SkuProductEntity{
+			SKU:        9011,
+			ActivityID: 100301,
+		},
+		productExists: true,
+		activity: activity.ActivityEntity{
+			State: "close",
+		},
+		activityExists: true,
+	}
+	processor := NewRebateProcessor(repo, &fakeRebateCreditRepository{})
+
+	err := processor.ProcessRebate(context.Background(), rebate.SendRebateMessage{
+		UserID:       "xiaofuge",
+		RebateType:   rebate.RebateTypeSKU,
+		RebateConfig: "9011",
+		BizID:        "biz-001",
+	})
+	assertAppErrorCode(t, err, types.ResponseCodeActivityStateError)
 }
 
 type fakeRebateProcessRepository struct {
