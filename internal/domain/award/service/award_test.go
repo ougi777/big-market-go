@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +48,30 @@ func TestAwardServiceSaveUserAwardRecord(t *testing.T) {
 	}
 	if taskRepo.completedUserID != "xiaofuge" || taskRepo.completedMessageID != "12345678901" {
 		t.Fatalf("expected task completed, got %s/%s", taskRepo.completedUserID, taskRepo.completedMessageID)
+	}
+}
+
+func TestAwardServiceSaveUserAwardRecordMarksTaskFailOnPublishError(t *testing.T) {
+	repo := &fakeAwardRepository{}
+	taskRepo := &fakeAwardTaskRepository{}
+	publisher := &fakeAwardPublisher{err: errors.New("publish failed")}
+	service := NewAwardService(repo, taskRepo, publisher)
+	service.messageGenerator = func() (string, error) { return "12345678901", nil }
+
+	err := service.SaveUserAwardRecord(context.Background(), award.UserAwardRecordEntity{
+		UserID:     "xiaofuge",
+		ActivityID: 100301,
+		StrategyID: 100006,
+		OrderID:    "order-001",
+		AwardID:    101,
+		AwardTitle: "随机积分",
+		AwardState: award.AwardStateCreate,
+	})
+	if err == nil {
+		t.Fatal("expected publish error")
+	}
+	if taskRepo.failUserID != "xiaofuge" || taskRepo.failMessageID != "12345678901" {
+		t.Fatalf("expected task fail, got %s/%s", taskRepo.failUserID, taskRepo.failMessageID)
 	}
 }
 
@@ -132,10 +157,14 @@ func (f *fakeAwardTaskRepository) UpdateTaskSendMessageFail(ctx context.Context,
 type fakeAwardPublisher struct {
 	topic   string
 	message string
+	err     error
 }
 
 func (f *fakeAwardPublisher) Publish(ctx context.Context, topic string, message string) error {
 	f.topic = topic
 	f.message = message
+	if f.err != nil {
+		return f.err
+	}
 	return nil
 }
