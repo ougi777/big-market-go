@@ -165,3 +165,61 @@ func TestActivityRepositorySaveCreatePartakeOrder(t *testing.T) {
 		t.Fatalf("expectations: %v", err)
 	}
 }
+
+func TestActivityRepositorySaveCreatePartakeOrderCreatesDayAndMonthAccount(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewActivityRepository(db)
+	orderTime := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `raffle_activity_account` SET `total_count_surplus`=total_count_surplus - ? WHERE user_id = ? and activity_id = ? and total_count_surplus > 0")).
+		WithArgs(1, "xiaofuge", int64(100301)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `raffle_activity_account_month`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `raffle_activity_account` SET `month_count_surplus`=? WHERE user_id = ? and activity_id = ?")).
+		WithArgs(29, "xiaofuge", int64(100301)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `raffle_activity_account_day`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `raffle_activity_account` SET `day_count_surplus`=? WHERE user_id = ? and activity_id = ?")).
+		WithArgs(9, "xiaofuge", int64(100301)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `user_raffle_order`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err := repo.SaveCreatePartakeOrder(context.Background(), activity.CreatePartakeOrderAggregate{
+		UserID:     "xiaofuge",
+		ActivityID: 100301,
+		ActivityAccountMonth: activity.AccountMonthEntity{
+			UserID:            "xiaofuge",
+			ActivityID:        100301,
+			Month:             "2026-05",
+			MonthCount:        30,
+			MonthCountSurplus: 30,
+		},
+		ActivityAccountDay: activity.AccountDayEntity{
+			UserID:          "xiaofuge",
+			ActivityID:      100301,
+			Day:             "2026-05-25",
+			DayCount:        10,
+			DayCountSurplus: 10,
+		},
+		UserRaffleOrder: activity.UserRaffleOrderEntity{
+			UserID:       "xiaofuge",
+			ActivityID:   100301,
+			ActivityName: "大营销抽奖",
+			StrategyID:   100006,
+			OrderID:      "order-001",
+			OrderTime:    orderTime,
+			OrderState:   activity.UserRaffleOrderCreate,
+		},
+	})
+	if err != nil {
+		t.Fatalf("save create partake order: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
