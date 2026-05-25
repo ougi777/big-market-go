@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"fmt"
+	"sort"
 
 	"bm-go/internal/config"
 
@@ -50,6 +51,24 @@ func (r *Router) Shard(key string) *gorm.DB {
 		return db
 	}
 	return r.defaultDB
+}
+
+func (r *Router) Connections() []*gorm.DB {
+	if r == nil {
+		return nil
+	}
+	connections := make([]*gorm.DB, 0, len(r.shards)+1)
+	connections = append(connections, r.defaultDB)
+
+	keys := make([]string, 0, len(r.shards))
+	for key := range r.shards {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		connections = append(connections, r.shards[key])
+	}
+	return connections
 }
 
 func open(dsn string, maxIdleConns int, maxOpenConns int) (*gorm.DB, error) {

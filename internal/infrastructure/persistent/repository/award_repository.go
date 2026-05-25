@@ -41,6 +41,20 @@ func (r *AwardRepository) shardDB(ctx context.Context, userID string) *gorm.DB {
 	return r.db.Shard(r.sharder.DBKey(userID)).WithContext(ctx)
 }
 
+func (r *AwardRepository) taskDBs(ctx context.Context) []*gorm.DB {
+	connections := r.db.Connections()
+	dbs := make([]*gorm.DB, 0, len(connections))
+	for _, db := range connections {
+		if db != nil {
+			dbs = append(dbs, db.WithContext(ctx))
+		}
+	}
+	if len(dbs) == 0 {
+		return []*gorm.DB{r.defaultDB(ctx)}
+	}
+	return dbs
+}
+
 func (r *AwardRepository) SaveUserAwardRecord(ctx context.Context, record award.UserAwardRecordEntity) error {
 	return r.shardDB(ctx, record.UserID).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
@@ -160,27 +174,35 @@ func (r *AwardRepository) QueryNoSendMessageTaskList(ctx context.Context, limit 
 		limit = 10
 	}
 
-	var taskPOList []po.Task
-	err := r.defaultDB(ctx).
-		Select("user_id", "topic", "message_id", "message", "state").
-		Where("state = ? or (state = ? and update_time < date_sub(now(), interval 6 second))", award.TaskStateFail, award.TaskStateCreate).
-		Limit(limit).
-		Find(&taskPOList).
-		Error
-	if err != nil {
-		return nil, err
+	tasks := make([]award.TaskEntity, 0, limit)
+	for _, db := range r.taskDBs(ctx) {
+		remaining := limit - len(tasks)
+		if remaining <= 0 {
+			break
+		}
+
+		var taskPOList []po.Task
+		err := db.
+			Select("user_id", "topic", "message_id", "message", "state").
+			Where("state = ? or (state = ? and update_time < date_sub(now(), interval 6 second))", award.TaskStateFail, award.TaskStateCreate).
+			Limit(remaining).
+			Find(&taskPOList).
+			Error
+		if err != nil {
+			return nil, err
+		}
+
+		for _, taskPO := range taskPOList {
+			tasks = append(tasks, award.TaskEntity{
+				UserID:    taskPO.UserID,
+				Topic:     taskPO.Topic,
+				MessageID: taskPO.MessageID,
+				Message:   taskPO.Message,
+				State:     taskPO.State,
+			})
+		}
 	}
 
-	tasks := make([]award.TaskEntity, 0, len(taskPOList))
-	for _, taskPO := range taskPOList {
-		tasks = append(tasks, award.TaskEntity{
-			UserID:    taskPO.UserID,
-			Topic:     taskPO.Topic,
-			MessageID: taskPO.MessageID,
-			Message:   taskPO.Message,
-			State:     taskPO.State,
-		})
-	}
 	return tasks, nil
 }
 
