@@ -61,25 +61,33 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 	if repo.completeAggregate.CreditOrder.TradeAmount != -1.68 {
 		t.Fatalf("expected credit amount -1.68, got %.2f", repo.completeAggregate.CreditOrder.TradeAmount)
 	}
+	if repo.completeAggregate.SendTask.Topic != "credit_adjust_success" || repo.completeAggregate.SendTask.MessageID != "22222222222" {
+		t.Fatalf("expected send task, got %+v", repo.completeAggregate.SendTask)
+	}
 	if publisher.topic != "credit_adjust_success" {
 		t.Fatalf("expected credit adjust success topic, got %s", publisher.topic)
 	}
 	if !strings.Contains(publisher.message, `"outBusinessNo":"987654321098"`) {
 		t.Fatalf("expected adjust success message, got %s", publisher.message)
 	}
+	if repo.completedMessageID != "22222222222" {
+		t.Fatalf("expected completed task, got %s", repo.completedMessageID)
+	}
 }
 
 type fakeExchangeRepository struct {
-	product           activity.SkuProductEntity
-	productExists     bool
-	activity          activity.ActivityEntity
-	activityExists    bool
-	unpaid            activity.SkuExchangeOrderEntity
-	unpaidExists      bool
-	saved             bool
-	completed         bool
-	createAggregate   activity.CreateSkuExchangeOrderAggregate
-	completeAggregate activity.CompleteSkuExchangeAggregate
+	product            activity.SkuProductEntity
+	productExists      bool
+	activity           activity.ActivityEntity
+	activityExists     bool
+	unpaid             activity.SkuExchangeOrderEntity
+	unpaidExists       bool
+	saved              bool
+	completed          bool
+	completedMessageID string
+	failMessageID      string
+	createAggregate    activity.CreateSkuExchangeOrderAggregate
+	completeAggregate  activity.CompleteSkuExchangeAggregate
 }
 
 func (f *fakeExchangeRepository) QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error) {
@@ -103,6 +111,16 @@ func (f *fakeExchangeRepository) SaveCreditPayOrder(ctx context.Context, aggrega
 func (f *fakeExchangeRepository) CompleteCreditPayOrder(ctx context.Context, aggregate activity.CompleteSkuExchangeAggregate) error {
 	f.completed = true
 	f.completeAggregate = aggregate
+	return nil
+}
+
+func (f *fakeExchangeRepository) UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error {
+	f.completedMessageID = messageID
+	return nil
+}
+
+func (f *fakeExchangeRepository) UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error {
+	f.failMessageID = messageID
 	return nil
 }
 

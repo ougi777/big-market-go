@@ -17,6 +17,8 @@ type exchangeRepository interface {
 	QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (activity.SkuExchangeOrderEntity, bool, error)
 	SaveCreditPayOrder(ctx context.Context, aggregate activity.CreateSkuExchangeOrderAggregate) error
 	CompleteCreditPayOrder(ctx context.Context, aggregate activity.CompleteSkuExchangeAggregate) error
+	UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error
+	UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error
 }
 
 type exchangeStockService interface {
@@ -140,22 +142,6 @@ func (s *ExchangeService) payCreditOrder(ctx context.Context, order activity.Sku
 	if err != nil {
 		return false, err
 	}
-	err = s.repo.CompleteCreditPayOrder(ctx, activity.CompleteSkuExchangeAggregate{
-		UserID:        order.UserID,
-		OutBusinessNo: order.OutBusinessNo,
-		CreditOrder: activity.CreditOrderEntity{
-			UserID:        order.UserID,
-			OrderID:       creditOrderID,
-			TradeName:     "CONVERT_SKU",
-			TradeType:     "reverse",
-			TradeAmount:   -order.PayAmount,
-			OutBusinessNo: order.OutBusinessNo,
-		},
-	})
-	if err != nil {
-		return false, err
-	}
-
 	messageID, err := s.messageIDGenerator()
 	if err != nil {
 		return false, err
@@ -173,8 +159,32 @@ func (s *ExchangeService) payCreditOrder(ctx context.Context, order activity.Sku
 	if err != nil {
 		return false, err
 	}
-	if err := s.publisher.Publish(ctx, credit.TopicCreditAdjustSuccess, string(message)); err != nil {
+	err = s.repo.CompleteCreditPayOrder(ctx, activity.CompleteSkuExchangeAggregate{
+		UserID:        order.UserID,
+		OutBusinessNo: order.OutBusinessNo,
+		CreditOrder: activity.CreditOrderEntity{
+			UserID:        order.UserID,
+			OrderID:       creditOrderID,
+			TradeName:     "CONVERT_SKU",
+			TradeType:     "reverse",
+			TradeAmount:   -order.PayAmount,
+			OutBusinessNo: order.OutBusinessNo,
+		},
+		SendTask: activity.TaskEntity{
+			UserID:    order.UserID,
+			Topic:     credit.TopicCreditAdjustSuccess,
+			MessageID: messageID,
+			Message:   string(message),
+			State:     "create",
+		},
+	})
+	if err != nil {
 		return false, err
 	}
+	if err := s.publisher.Publish(ctx, credit.TopicCreditAdjustSuccess, string(message)); err != nil {
+		_ = s.repo.UpdateTaskSendMessageFail(ctx, order.UserID, messageID)
+		return false, err
+	}
+	_ = s.repo.UpdateTaskSendMessageCompleted(ctx, order.UserID, messageID)
 	return true, nil
 }

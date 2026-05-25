@@ -37,6 +37,8 @@ type SkuExchangeRepository interface {
 	QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (SkuExchangeOrderEntity, bool, error)
 	SaveCreditPayOrder(ctx context.Context, aggregate CreateSkuExchangeOrderAggregate) error
 	CompleteCreditPayOrder(ctx context.Context, aggregate CompleteSkuExchangeAggregate) error
+	UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error
+	UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error
 }
 
 type RebateRepository interface {

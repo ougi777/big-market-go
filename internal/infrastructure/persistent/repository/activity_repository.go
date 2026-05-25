@@ -320,6 +320,19 @@ func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggrega
 		}).Error; err != nil {
 			return types.NewAppError(types.ResponseCodeIndexDup, err)
 		}
+		if aggregate.SendTask.MessageID != "" {
+			if err := tx.Create(&po.Task{
+				UserID:     aggregate.SendTask.UserID,
+				Topic:      aggregate.SendTask.Topic,
+				MessageID:  aggregate.SendTask.MessageID,
+				Message:    aggregate.SendTask.Message,
+				State:      aggregate.SendTask.State,
+				CreateTime: now,
+				UpdateTime: now,
+			}).Error; err != nil {
+				return types.NewAppError(types.ResponseCodeIndexDup, err)
+			}
+		}
 
 		return nil
 	})
@@ -428,6 +441,25 @@ func (r *ActivityRepository) DeliverActivityOrder(ctx context.Context, deliveryO
 			OutBusinessNo: deliveryOrder.OutBusinessNo,
 		}, now)
 	})
+}
+
+func (r *ActivityRepository) UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error {
+	return r.updateTaskState(ctx, userID, messageID, "completed")
+}
+
+func (r *ActivityRepository) UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error {
+	return r.updateTaskState(ctx, userID, messageID, "fail")
+}
+
+func (r *ActivityRepository) updateTaskState(ctx context.Context, userID string, messageID string, state string) error {
+	return r.db.WithContext(ctx).
+		Model(&po.Task{}).
+		Where("user_id = ? and message_id = ?", userID, messageID).
+		Updates(map[string]any{
+			"state":       state,
+			"update_time": time.Now(),
+		}).
+		Error
 }
 
 func (r *ActivityRepository) UpdateActivitySkuStock(ctx context.Context, sku int64) error {

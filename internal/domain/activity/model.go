@@ -112,6 +112,7 @@ type CompleteSkuExchangeAggregate struct {
 	MonthCount    int
 	OutBusinessNo string
 	CreditOrder   CreditOrderEntity
+	SendTask      TaskEntity
 }
 
 type RebateSkuOrderEntity struct {
@@ -137,6 +138,14 @@ type RebateIntegralEntity struct {
 type DeliveryOrderEntity struct {
 	UserID        string
 	OutBusinessNo string
+}
+
+type TaskEntity struct {
+	UserID    string
+	Topic     string
+	MessageID string
+	Message   string
+	State     string
 }
 
 type ActivitySkuStockKey struct {
