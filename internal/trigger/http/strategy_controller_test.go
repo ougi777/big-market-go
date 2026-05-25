@@ -48,6 +48,23 @@ func TestStrategyArmoryRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestStrategyArmoryRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ArmoryService: &fakeArmoryService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/strategy/strategy_armory?strategyId=0", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestRandomRaffleRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		RaffleService: &fakeRaffleService{awardID: 101},
@@ -150,6 +167,24 @@ func TestQueryRaffleAwardListRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestQueryRaffleAwardListRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		QueryService: &fakeQueryService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/query_raffle_award_list", strings.NewReader(`{"userId":"","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestQueryRaffleStrategyRuleWeightRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		QueryService: &fakeQueryService{
@@ -193,6 +228,24 @@ func TestQueryRaffleStrategyRuleWeightRouteReturnsAppErrorCode(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_001"`) {
 		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
+func TestQueryRaffleStrategyRuleWeightRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		QueryService: &fakeQueryService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/query_raffle_strategy_rule_weight", strings.NewReader(`{"userId":"xiaofuge","activityId":0}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
 	}
 }
 
