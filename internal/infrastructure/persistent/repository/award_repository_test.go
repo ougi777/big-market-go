@@ -108,3 +108,41 @@ func TestAwardRepositorySaveUserAwardRecordDuplicate(t *testing.T) {
 		t.Fatalf("expectations: %v", err)
 	}
 }
+
+func TestAwardRepositorySaveGiveOutPrizesAwardStateError(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewAwardRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `user_credit_account` SET `available_amount`=available_amount + ?,`total_amount`=total_amount + ?,`update_time`=? WHERE user_id = ?")).
+		WithArgs(10.0, 10.0, sqlmock.AnyArg(), "xiaofuge").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `user_award_record` SET `award_state`=?,`update_time`=? WHERE user_id = ? and order_id = ? and award_state = ?")).
+		WithArgs(award.AwardStateComplete, sqlmock.AnyArg(), "xiaofuge", "order-001", award.AwardStateCreate).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectRollback()
+
+	err := repo.SaveGiveOutPrizes(context.Background(), award.GiveOutPrizesAggregate{
+		UserID: "xiaofuge",
+		UserAwardRecord: award.UserAwardRecordEntity{
+			UserID:     "xiaofuge",
+			OrderID:    "order-001",
+			AwardState: award.AwardStateComplete,
+		},
+		UserCreditAward: award.UserCreditAwardEntity{
+			UserID:       "xiaofuge",
+			CreditAmount: 10,
+		},
+	})
+
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != types.ResponseCodeActivityOrderStateError {
+		t.Fatalf("expected order state code, got %s", appErr.Code.Code)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
