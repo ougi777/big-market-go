@@ -21,7 +21,18 @@ func NewActivityStore(client *goredis.Client) *ActivityStore {
 	return &ActivityStore{client: client}
 }
 
+func (s *ActivityStore) ensureClient() error {
+	if s == nil || s.client == nil {
+		return ErrClientNotConnected
+	}
+	return nil
+}
+
 func (s *ActivityStore) CacheActivitySkuStockCount(ctx context.Context, key string, stockCount int) error {
+	if err := s.ensureClient(); err != nil {
+		return err
+	}
+
 	exists, err := s.client.Exists(ctx, key).Result()
 	if err != nil {
 		return err
@@ -33,10 +44,18 @@ func (s *ActivityStore) CacheActivitySkuStockCount(ctx context.Context, key stri
 }
 
 func (s *ActivityStore) SubtractActivitySkuStock(ctx context.Context, key string) (int64, error) {
+	if err := s.ensureClient(); err != nil {
+		return 0, err
+	}
+
 	return s.client.Decr(ctx, key).Result()
 }
 
 func (s *ActivityStore) SendActivitySkuStockConsumeQueue(ctx context.Context, stockKey activity.ActivitySkuStockKey) error {
+	if err := s.ensureClient(); err != nil {
+		return err
+	}
+
 	value, err := json.Marshal(stockKey)
 	if err != nil {
 		return err
@@ -45,6 +64,10 @@ func (s *ActivityStore) SendActivitySkuStockConsumeQueue(ctx context.Context, st
 }
 
 func (s *ActivityStore) TakeActivitySkuStock(ctx context.Context) (activity.ActivitySkuStockKey, bool, error) {
+	if err := s.ensureClient(); err != nil {
+		return activity.ActivitySkuStockKey{}, false, err
+	}
+
 	value, err := s.client.LPop(ctx, types.RedisKeyActivitySkuStockQueue).Result()
 	if err == goredis.Nil {
 		return activity.ActivitySkuStockKey{}, false, nil
@@ -61,5 +84,9 @@ func (s *ActivityStore) TakeActivitySkuStock(ctx context.Context) (activity.Acti
 }
 
 func (s *ActivityStore) ClearActivitySkuStockQueue(ctx context.Context) error {
+	if err := s.ensureClient(); err != nil {
+		return err
+	}
+
 	return s.client.Del(ctx, types.RedisKeyActivitySkuStockQueue).Err()
 }

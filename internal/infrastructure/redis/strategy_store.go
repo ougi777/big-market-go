@@ -23,7 +23,18 @@ func NewStrategyStore(client *goredis.Client) *StrategyStore {
 	return &StrategyStore{client: client}
 }
 
+func (s *StrategyStore) ensureClient() error {
+	if s == nil || s.client == nil {
+		return ErrClientNotConnected
+	}
+	return nil
+}
+
 func (s *StrategyStore) StoreStrategyAwardSearchRateTable(ctx context.Context, key string, rateRange int, table map[int]int) error {
+	if err := s.ensureClient(); err != nil {
+		return err
+	}
+
 	if err := s.client.Set(ctx, types.RedisKeyStrategyRateRange+key, rateRange, 0).Err(); err != nil {
 		return err
 	}
@@ -36,6 +47,10 @@ func (s *StrategyStore) StoreStrategyAwardSearchRateTable(ctx context.Context, k
 }
 
 func (s *StrategyStore) CacheStrategyAwardCount(ctx context.Context, key string, awardCount int) error {
+	if err := s.ensureClient(); err != nil {
+		return err
+	}
+
 	exists, err := s.client.Exists(ctx, key).Result()
 	if err != nil {
 		return err
@@ -47,11 +62,19 @@ func (s *StrategyStore) CacheStrategyAwardCount(ctx context.Context, key string,
 }
 
 func (s *StrategyStore) AwardStockConsumeSendQueue(ctx context.Context, strategyID int64, awardID int) error {
+	if err := s.ensureClient(); err != nil {
+		return err
+	}
+
 	value := fmt.Sprintf("%d:%d", strategyID, awardID)
 	return s.client.RPush(ctx, types.RedisKeyStrategyAwardCountQueue, value).Err()
 }
 
 func (s *StrategyStore) TakeQueueValue(ctx context.Context) (strategy.AwardStockKey, bool, error) {
+	if err := s.ensureClient(); err != nil {
+		return strategy.AwardStockKey{}, false, err
+	}
+
 	value, err := s.client.LPop(ctx, types.RedisKeyStrategyAwardCountQueue).Result()
 	if err == goredis.Nil {
 		return strategy.AwardStockKey{}, false, nil
