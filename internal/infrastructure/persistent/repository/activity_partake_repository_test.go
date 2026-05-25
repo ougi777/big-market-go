@@ -2,11 +2,13 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/types"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"gorm.io/gorm"
@@ -60,6 +62,42 @@ func TestActivityRepositoryQueryNoUsedRaffleOrderNotFound(t *testing.T) {
 	}
 	if exists {
 		t.Fatalf("expected raffle order missing, got %+v", order)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestActivityRepositorySaveCreatePartakeOrderQuotaNotEnough(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewActivityRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `raffle_activity_account` SET `total_count_surplus`=total_count_surplus - ? WHERE user_id = ? and activity_id = ? and total_count_surplus > 0")).
+		WithArgs(1, "xiaofuge", int64(100301)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectRollback()
+
+	err := repo.SaveCreatePartakeOrder(context.Background(), activity.CreatePartakeOrderAggregate{
+		UserID:     "xiaofuge",
+		ActivityID: 100301,
+		UserRaffleOrder: activity.UserRaffleOrderEntity{
+			UserID:       "xiaofuge",
+			ActivityID:   100301,
+			ActivityName: "大营销抽奖",
+			StrategyID:   100006,
+			OrderID:      "order-001",
+			OrderTime:    time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local),
+			OrderState:   activity.UserRaffleOrderCreate,
+		},
+	})
+
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != types.ResponseCodeAccountQuotaError {
+		t.Fatalf("expected account quota code, got %s", appErr.Code.Code)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("expectations: %v", err)
