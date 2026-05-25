@@ -35,7 +35,7 @@ internal/types              通用响应、错误码、错误类型
 - 奖品模块：中奖记录、发奖消息、发奖消费、任务补偿。
 - 返利模块：日历签到、返利订单、返利消息消费。
 - 积分模块：积分账户查询、积分扣减、异步发货消息。
-- 基础设施：MySQL、Redis、RabbitMQ、Cron、用户分表表名路由。
+- 基础设施：MySQL、Redis、RabbitMQ、Cron、用户分表表名路由、多数据源配置结构。
 
 ## 本地运行
 
@@ -83,17 +83,27 @@ POST /api/v1/raffle/activity/credit_pay_exchange_sku
 
 ## 分表配置
 
-默认使用单表：
+默认使用单库单表：
 
 ```yaml
+mysql:
+  dsn: root:123456@tcp(localhost:13308)/big_market?charset=utf8mb4&parseTime=True&loc=Local
+  shards: {}
 sharding:
   db_count: 1
   table_count: 1
 ```
 
-需要访问 Java 项目的分表数据时，可调整为：
+需要兼容 Java 项目 `big_market_01`、`big_market_02` 分库分表数据时，可配置：
 
 ```yaml
+mysql:
+  dsn: root:123456@tcp(localhost:13308)/big_market?charset=utf8mb4&parseTime=True&loc=Local
+  shards:
+    db01:
+      dsn: root:123456@tcp(localhost:13308)/big_market_01?charset=utf8mb4&parseTime=True&loc=Local
+    db02:
+      dsn: root:123456@tcp(localhost:13308)/big_market_02?charset=utf8mb4&parseTime=True&loc=Local
 sharding:
   db_count: 2
   table_count: 4
@@ -109,4 +119,4 @@ user_behavior_rebate_order
 user_credit_order
 ```
 
-多数据源库路由仍在后续重构范围内。
+多数据源运行时路由仍在后续重构范围内。

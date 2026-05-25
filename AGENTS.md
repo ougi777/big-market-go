@@ -39,9 +39,10 @@ internal/types              通用响应、错误码、错误类型
 - 活动装配、活动抽奖、活动账户查询
 - 活动 SKU 库存扣减、库存归零消费、库存同步任务
 - 奖品发奖消息、发奖消费、任务补偿
-- 日历签到返利、返利消息消费
+- 日历签到返利、返利订单、返利消息消费
 - 用户积分账户查询、积分兑换 SKU、异步发货、消息补偿
-- 用户相关分表表名路由，默认 `table_count: 1`
+- 用户相关分表表名路由，兼容 Java `mini-db-router` 表索引算法
+- MySQL 多数据源配置结构
 
 ## 运行方式
 
@@ -69,20 +70,26 @@ GET /health
 
 ## 数据库说明
 
-默认配置连接 `big_market` 单库，`sharding.table_count` 默认为 `1`。需要访问 Java 分表数据时，可设置：
+默认配置连接 `big_market` 单库，`sharding.db_count` 和 `sharding.table_count` 默认为 `1`。需要访问 Java 分库分表数据时，可配置：
 
 ```yaml
+mysql:
+  shards:
+    db01:
+      dsn: root:123456@tcp(localhost:13308)/big_market_01?charset=utf8mb4&parseTime=True&loc=Local
+    db02:
+      dsn: root:123456@tcp(localhost:13308)/big_market_02?charset=utf8mb4&parseTime=True&loc=Local
 sharding:
   db_count: 2
   table_count: 4
 ```
 
-当前已支持用户流水类表的表名分片：`raffle_activity_order`、`user_raffle_order`、`user_award_record`、`user_behavior_rebate_order`、`user_credit_order`。多数据源库路由仍需后续切片实现。
+当前已支持用户流水类表的表名分片：`raffle_activity_order`、`user_raffle_order`、`user_award_record`、`user_behavior_rebate_order`、`user_credit_order`。
 
 ## 后续优先级
 
-- 多数据源库路由，兼容 `big_market_01`、`big_market_02`
+- 多数据源运行时库路由，兼容 `big_market_01`、`big_market_02`
 - 分表路由在活动账户日/月表、任务表上的完整对齐
 - 积分领域从活动仓储中拆出独立仓储
 - 抽奖、兑换、返利链路的集成测试
-- README 乱码修复和接口文档补全
+- HTTP 接口文档补全

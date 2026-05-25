@@ -22,9 +22,14 @@ type ServerConfig struct {
 }
 
 type MySQLConfig struct {
-	DSN          string `mapstructure:"dsn"`
-	MaxIdleConns int    `mapstructure:"max_idle_conns"`
-	MaxOpenConns int    `mapstructure:"max_open_conns"`
+	DSN          string                      `mapstructure:"dsn"`
+	MaxIdleConns int                         `mapstructure:"max_idle_conns"`
+	MaxOpenConns int                         `mapstructure:"max_open_conns"`
+	Shards       map[string]MySQLShardConfig `mapstructure:"shards"`
+}
+
+type MySQLShardConfig struct {
+	DSN string `mapstructure:"dsn"`
 }
 
 type ShardingConfig struct {

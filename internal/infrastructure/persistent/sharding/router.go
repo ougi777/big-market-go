@@ -30,6 +30,15 @@ func (r Router) Table(baseTable string, key string) string {
 	return fmt.Sprintf("%s_%03d", baseTable, r.tableIndex(key))
 }
 
+func (r Router) DBKey(key string) string {
+	if r.DBCount <= 1 || key == "" {
+		return "default"
+	}
+	idx := r.routeIndex(key)
+	dbIdx := idx/int32(r.TableCount) + 1
+	return fmt.Sprintf("db%02d", dbIdx)
+}
+
 func (r Router) tableIndex(key string) int32 {
 	idx := r.routeIndex(key)
 	tableCount := int32(r.TableCount)

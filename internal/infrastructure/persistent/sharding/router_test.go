@@ -28,6 +28,22 @@ func TestRouterTableCompatibleWithJavaMiniDBRouter(t *testing.T) {
 	}
 }
 
+func TestRouterDBKeyCompatibleWithJavaMiniDBRouter(t *testing.T) {
+	router := NewRouterWithDBCount(2, 4)
+
+	tests := map[string]string{
+		"xiaofuge": "db01",
+		"user001":  "db02",
+		"user002":  "db02",
+	}
+
+	for userID, expected := range tests {
+		if dbKey := router.DBKey(userID); dbKey != expected {
+			t.Fatalf("expected %s for %s, got %s", expected, userID, dbKey)
+		}
+	}
+}
+
 func TestRouterTableDisabled(t *testing.T) {
 	router := NewRouter(1)
 

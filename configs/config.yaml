@@ -5,6 +5,7 @@ mysql:
   dsn: root:123456@tcp(localhost:13308)/big_market?charset=utf8mb4&parseTime=True&loc=Local
   max_idle_conns: 10
   max_open_conns: 50
+  shards: {}
 
 sharding:
   db_count: 1
