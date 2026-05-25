@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"bm-go/internal/domain/strategy"
@@ -98,6 +99,66 @@ func TestQueryServiceQueryRaffleStrategyRuleWeightEmpty(t *testing.T) {
 	}
 }
 
+func TestQueryServiceQueryRaffleAwardListStrategyIDError(t *testing.T) {
+	service := NewQueryService(&fakeStrategyQueryRepository{strategyIDErr: errors.New("strategy id failed")})
+
+	_, err := service.QueryRaffleAwardList(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected strategy id error")
+	}
+}
+
+func TestQueryServiceQueryRaffleAwardListAwardsError(t *testing.T) {
+	service := NewQueryService(&fakeStrategyQueryRepository{awardListErr: errors.New("awards failed")})
+
+	_, err := service.QueryRaffleAwardList(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected awards error")
+	}
+}
+
+func TestQueryServiceQueryRaffleAwardListLockCountError(t *testing.T) {
+	service := NewQueryService(&fakeStrategyQueryRepository{
+		awards:  []strategy.StrategyAwardEntity{{AwardID: 101, RuleModels: "tree_lock_1"}},
+		lockErr: errors.New("lock failed"),
+	})
+
+	_, err := service.QueryRaffleAwardList(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected lock count error")
+	}
+}
+
+func TestQueryServiceQueryRaffleAwardListDayPartakeError(t *testing.T) {
+	service := NewQueryService(&fakeStrategyQueryRepository{
+		awards:     []strategy.StrategyAwardEntity{{AwardID: 101}},
+		dayPartErr: errors.New("day partake failed"),
+	})
+
+	_, err := service.QueryRaffleAwardList(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected day partake error")
+	}
+}
+
+func TestQueryServiceQueryRaffleStrategyRuleWeightPartakeError(t *testing.T) {
+	service := NewQueryService(&fakeStrategyQueryRepository{partakeErr: errors.New("partake failed")})
+
+	_, err := service.QueryRaffleStrategyRuleWeight(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected partake error")
+	}
+}
+
+func TestQueryServiceQueryRaffleStrategyRuleWeightRuleError(t *testing.T) {
+	service := NewQueryService(&fakeStrategyQueryRepository{ruleWeightErr: errors.New("rule failed")})
+
+	_, err := service.QueryRaffleStrategyRuleWeight(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected rule weight error")
+	}
+}
+
 type fakeStrategyQueryRepository struct {
 	strategyID      int64
 	awards          []strategy.StrategyAwardEntity
@@ -105,28 +166,34 @@ type fakeStrategyQueryRepository struct {
 	dayPartakeCount int
 	totalUseCount   int
 	ruleWeightList  []strategy.RuleWeight
+	strategyIDErr   error
+	awardListErr    error
+	lockErr         error
+	dayPartErr      error
+	partakeErr      error
+	ruleWeightErr   error
 }
 
 func (f *fakeStrategyQueryRepository) QueryStrategyIDByActivityID(ctx context.Context, activityID int64) (int64, error) {
-	return f.strategyID, nil
+	return f.strategyID, f.strategyIDErr
 }
 
 func (f *fakeStrategyQueryRepository) QueryStrategyAwardList(ctx context.Context, strategyID int64) ([]strategy.StrategyAwardEntity, error) {
-	return f.awards, nil
+	return f.awards, f.awardListErr
 }
 
 func (f *fakeStrategyQueryRepository) QueryAwardRuleLockCount(ctx context.Context, treeIDs []string) (map[string]int, error) {
-	return f.lockCounts, nil
+	return f.lockCounts, f.lockErr
 }
 
 func (f *fakeStrategyQueryRepository) QueryRaffleActivityAccountDayPartakeCount(ctx context.Context, activityID int64, userID string) (int, error) {
-	return f.dayPartakeCount, nil
+	return f.dayPartakeCount, f.dayPartErr
 }
 
 func (f *fakeStrategyQueryRepository) QueryRaffleActivityAccountPartakeCount(ctx context.Context, activityID int64, userID string) (int, error) {
-	return f.totalUseCount, nil
+	return f.totalUseCount, f.partakeErr
 }
 
 func (f *fakeStrategyQueryRepository) QueryAwardRuleWeight(ctx context.Context, strategyID int64) ([]strategy.RuleWeight, error) {
-	return f.ruleWeightList, nil
+	return f.ruleWeightList, f.ruleWeightErr
 }
