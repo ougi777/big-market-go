@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -50,31 +51,73 @@ func TestDrawServiceDraw(t *testing.T) {
 	}
 }
 
+func TestDrawServiceDrawPartakeError(t *testing.T) {
+	service := NewDrawService(
+		&fakeDrawPartakeService{err: errors.New("partake failed")},
+		&fakeDrawRaffleService{},
+		&fakeDrawAwardService{},
+	)
+
+	_, err := service.Draw(context.Background(), "xiaofuge", 100301)
+	if err == nil {
+		t.Fatal("expected partake error")
+	}
+}
+
+func TestDrawServiceDrawRaffleError(t *testing.T) {
+	service := NewDrawService(
+		&fakeDrawPartakeService{order: activity.UserRaffleOrderEntity{UserID: "xiaofuge", StrategyID: 100006}},
+		&fakeDrawRaffleService{err: errors.New("raffle failed")},
+		&fakeDrawAwardService{},
+	)
+
+	_, err := service.Draw(context.Background(), "xiaofuge", 100301)
+	if err == nil {
+		t.Fatal("expected raffle error")
+	}
+}
+
+func TestDrawServiceDrawSaveAwardError(t *testing.T) {
+	service := NewDrawService(
+		&fakeDrawPartakeService{order: activity.UserRaffleOrderEntity{UserID: "xiaofuge", ActivityID: 100301, StrategyID: 100006}},
+		&fakeDrawRaffleService{result: chain.AwardResult{AwardID: 101, AwardTitle: "credit"}},
+		&fakeDrawAwardService{err: errors.New("save award failed")},
+	)
+
+	_, err := service.Draw(context.Background(), "xiaofuge", 100301)
+	if err == nil {
+		t.Fatal("expected save award error")
+	}
+}
+
 type fakeDrawPartakeService struct {
 	order activity.UserRaffleOrderEntity
+	err   error
 }
 
 func (f *fakeDrawPartakeService) CreateOrder(ctx context.Context, userID string, activityID int64) (activity.UserRaffleOrderEntity, error) {
-	return f.order, nil
+	return f.order, f.err
 }
 
 type fakeDrawRaffleService struct {
 	userID     string
 	strategyID int64
 	result     chain.AwardResult
+	err        error
 }
 
 func (f *fakeDrawRaffleService) PerformRaffle(ctx context.Context, userID string, strategyID int64) (chain.AwardResult, error) {
 	f.userID = userID
 	f.strategyID = strategyID
-	return f.result, nil
+	return f.result, f.err
 }
 
 type fakeDrawAwardService struct {
 	record award.UserAwardRecordEntity
+	err    error
 }
 
 func (f *fakeDrawAwardService) SaveUserAwardRecord(ctx context.Context, record award.UserAwardRecordEntity) error {
 	f.record = record
-	return nil
+	return f.err
 }
