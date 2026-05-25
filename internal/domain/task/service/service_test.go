@@ -61,28 +61,84 @@ func TestServiceSendNoSendMessageTasksMarksFailOnPublishError(t *testing.T) {
 	}
 }
 
+func TestServiceSendNoSendMessageTasksQueryError(t *testing.T) {
+	repo := &fakeTaskRepository{queryErr: errors.New("query failed")}
+	service := NewService(repo, &fakeTaskPublisher{})
+
+	err := service.SendNoSendMessageTasks(context.Background(), 10)
+	if err == nil {
+		t.Fatal("expected query error")
+	}
+}
+
+func TestServiceSendNoSendMessageTasksFailStateError(t *testing.T) {
+	repo := &fakeTaskRepository{
+		tasks: []task.Entity{
+			{
+				UserID:    "xiaofuge",
+				Topic:     "send_award",
+				MessageID: "12345678901",
+				Message:   `{"id":"12345678901"}`,
+				State:     task.StateCreate,
+			},
+		},
+		failErr: errors.New("mark fail failed"),
+	}
+	publisher := &fakeTaskPublisher{err: errors.New("publish failed")}
+	service := NewService(repo, publisher)
+
+	err := service.SendNoSendMessageTasks(context.Background(), 10)
+	if err == nil {
+		t.Fatal("expected fail state error")
+	}
+}
+
+func TestServiceSendNoSendMessageTasksCompletedStateError(t *testing.T) {
+	repo := &fakeTaskRepository{
+		tasks: []task.Entity{
+			{
+				UserID:    "xiaofuge",
+				Topic:     "send_award",
+				MessageID: "12345678901",
+				Message:   `{"id":"12345678901"}`,
+				State:     task.StateCreate,
+			},
+		},
+		completedErr: errors.New("mark completed failed"),
+	}
+	service := NewService(repo, &fakeTaskPublisher{})
+
+	err := service.SendNoSendMessageTasks(context.Background(), 10)
+	if err == nil {
+		t.Fatal("expected completed state error")
+	}
+}
+
 type fakeTaskRepository struct {
 	tasks              []task.Entity
 	completedUserID    string
 	completedMessageID string
 	failUserID         string
 	failMessageID      string
+	queryErr           error
+	completedErr       error
+	failErr            error
 }
 
 func (f *fakeTaskRepository) QueryNoSendMessageTaskList(ctx context.Context, limit int) ([]task.Entity, error) {
-	return f.tasks, nil
+	return f.tasks, f.queryErr
 }
 
 func (f *fakeTaskRepository) UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error {
 	f.completedUserID = userID
 	f.completedMessageID = messageID
-	return nil
+	return f.completedErr
 }
 
 func (f *fakeTaskRepository) UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error {
 	f.failUserID = userID
 	f.failMessageID = messageID
-	return nil
+	return f.failErr
 }
 
 type fakeTaskPublisher struct {
