@@ -1,5 +1,24 @@
 package activity
 
+import "time"
+
+const (
+	ActivityStateOpen     = "open"
+	UserRaffleOrderCreate = "create"
+	UserRaffleOrderUsed   = "used"
+	UserRaffleOrderCancel = "cancel"
+)
+
+type ActivityEntity struct {
+	ActivityID    int64
+	ActivityName  string
+	ActivityDesc  string
+	BeginDateTime time.Time
+	EndDateTime   time.Time
+	StrategyID    int64
+	State         string
+}
+
 type AccountEntity struct {
 	UserID            string
 	ActivityID        int64
@@ -42,4 +61,32 @@ type ActivityCountEntity struct {
 	TotalCount      int
 	DayCount        int
 	MonthCount      int
+}
+
+type UserRaffleOrderEntity struct {
+	UserID       string
+	ActivityID   int64
+	ActivityName string
+	StrategyID   int64
+	OrderID      string
+	OrderTime    time.Time
+	OrderState   string
+	EndDateTime  time.Time
+}
+
+type CreatePartakeOrderAggregate struct {
+	UserID               string
+	ActivityID           int64
+	ActivityAccount      AccountEntity
+	ExistAccountMonth    bool
+	ActivityAccountMonth AccountMonthEntity
+	ExistAccountDay      bool
+	ActivityAccountDay   AccountDayEntity
+	UserRaffleOrder      UserRaffleOrderEntity
+}
+
+type DrawResult struct {
+	AwardID    int
+	AwardTitle string
+	AwardIndex int
 }

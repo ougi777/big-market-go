@@ -66,6 +66,33 @@ func TestActivityArmoryRoute(t *testing.T) {
 	}
 }
 
+func TestActivityDrawRoute(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityDrawService: &fakeActivityDrawService{
+			result: activity.DrawResult{
+				AwardID:    101,
+				AwardTitle: "积分",
+				AwardIndex: 1,
+			},
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/draw", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"awardId":101`) {
+		t.Fatalf("expected award id, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"awardTitle":"积分"`) {
+		t.Fatalf("expected award title, got %s", recorder.Body.String())
+	}
+}
+
 func TestQuerySkuProductListByActivityIDRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		ActivitySkuProductService: &fakeActivitySkuProductService{
@@ -137,4 +164,12 @@ type fakeActivityStrategyArmoryService struct {
 func (f *fakeActivityStrategyArmoryService) AssembleLotteryStrategyByActivityID(ctx context.Context, activityID int64) error {
 	f.activityID = activityID
 	return nil
+}
+
+type fakeActivityDrawService struct {
+	result activity.DrawResult
+}
+
+func (f *fakeActivityDrawService) Draw(ctx context.Context, userID string, activityID int64) (activity.DrawResult, error) {
+	return f.result, nil
 }

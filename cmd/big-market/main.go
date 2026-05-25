@@ -11,6 +11,7 @@ import (
 
 	"bm-go/internal/config"
 	activityservice "bm-go/internal/domain/activity/service"
+	awardservice "bm-go/internal/domain/award/service"
 	"bm-go/internal/domain/strategy/rule/chain"
 	"bm-go/internal/domain/strategy/rule/tree"
 	strategyservice "bm-go/internal/domain/strategy/service"
@@ -45,6 +46,7 @@ func main() {
 	activityStore := infrredis.NewActivityStore(redisClient)
 	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
 	activityRepository := repository.NewActivityRepository(db)
+	awardRepository := repository.NewAwardRepository(db)
 	strategyDispatch := repository.NewStrategyDispatch(redisClient)
 	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
 	treeNodes := map[string]tree.Node{
@@ -59,6 +61,9 @@ func main() {
 	activityAccountService := activityservice.NewAccountService(activityRepository)
 	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
 	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
+	activityPartakeService := activityservice.NewPartakeService(activityRepository)
+	awardService := awardservice.NewAwardService(awardRepository)
+	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
 		Logger:                        logger,
@@ -69,6 +74,7 @@ func main() {
 		ActivitySkuProductService:     activitySkuProductService,
 		ActivityArmoryService:         activityArmoryService,
 		ActivityStrategyArmoryService: armoryService,
+		ActivityDrawService:           activityDrawService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),

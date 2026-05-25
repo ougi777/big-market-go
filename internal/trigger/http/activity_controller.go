@@ -28,11 +28,27 @@ type activityStrategyArmoryService interface {
 	AssembleLotteryStrategyByActivityID(ctx context.Context, activityID int64) error
 }
 
+type activityDrawService interface {
+	Draw(ctx context.Context, userID string, activityID int64) (activity.DrawResult, error)
+}
+
 type raffleActivityController struct {
 	accountService        activityAccountService
 	skuProductService     activitySkuProductService
 	armoryService         activityArmoryService
 	strategyArmoryService activityStrategyArmoryService
+	drawService           activityDrawService
+}
+
+type activityDrawRequest struct {
+	UserID     string `json:"userId"`
+	ActivityID int64  `json:"activityId"`
+}
+
+type activityDrawResponse struct {
+	AwardID    int    `json:"awardId"`
+	AwardTitle string `json:"awardTitle"`
+	AwardIndex int    `json:"awardIndex"`
 }
 
 type userActivityAccountRequest struct {
@@ -79,6 +95,7 @@ func registerRaffleActivityRoutes(router *gin.RouterGroup, opts RouterOptions) {
 		skuProductService:     opts.ActivitySkuProductService,
 		armoryService:         opts.ActivityArmoryService,
 		strategyArmoryService: opts.ActivityStrategyArmoryService,
+		drawService:           opts.ActivityDrawService,
 	}
 	if controller.accountService == nil {
 		controller.accountService = nilActivityAccountService{}
@@ -92,9 +109,13 @@ func registerRaffleActivityRoutes(router *gin.RouterGroup, opts RouterOptions) {
 	if controller.strategyArmoryService == nil {
 		controller.strategyArmoryService = nilActivityStrategyArmoryService{}
 	}
+	if controller.drawService == nil {
+		controller.drawService = nilActivityDrawService{}
+	}
 
 	activityGroup := router.Group("/raffle/activity")
 	activityGroup.GET("/armory", controller.armory)
+	activityGroup.POST("/draw", controller.draw)
 	activityGroup.GET("/query_sku_product_list_by_activity_id", controller.querySkuProductListByActivityID)
 	activityGroup.POST("/query_user_activity_account", controller.queryUserActivityAccount)
 }
@@ -117,6 +138,31 @@ func (c *raffleActivityController) armory(ctx *gin.Context) {
 	}
 
 	ctx.JSON(stdhttp.StatusOK, types.Success(true))
+}
+
+func (c *raffleActivityController) draw(ctx *gin.Context) {
+	var request activityDrawRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.UserID) == "" || request.ActivityID == 0 {
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeIllegalParam, activityDrawResponse{}))
+		return
+	}
+
+	result, err := c.drawService.Draw(ctx.Request.Context(), request.UserID, request.ActivityID)
+	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, activityDrawResponse{}))
+			return
+		}
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, activityDrawResponse{}))
+		return
+	}
+
+	ctx.JSON(stdhttp.StatusOK, types.Success(activityDrawResponse{
+		AwardID:    result.AwardID,
+		AwardTitle: result.AwardTitle,
+		AwardIndex: result.AwardIndex,
+	}))
 }
 
 func (c *raffleActivityController) queryUserActivityAccount(ctx *gin.Context) {
@@ -197,4 +243,10 @@ type nilActivityStrategyArmoryService struct{}
 
 func (nilActivityStrategyArmoryService) AssembleLotteryStrategyByActivityID(ctx context.Context, activityID int64) error {
 	return errors.New("activity strategy armory service is not configured")
+}
+
+type nilActivityDrawService struct{}
+
+func (nilActivityDrawService) Draw(ctx context.Context, userID string, activityID int64) (activity.DrawResult, error) {
+	return activity.DrawResult{}, errors.New("activity draw service is not configured")
 }
