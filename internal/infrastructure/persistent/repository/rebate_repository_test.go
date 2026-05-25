@@ -2,10 +2,15 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
 
+	"bm-go/internal/domain/rebate"
+	"bm-go/internal/types"
+
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/go-sql-driver/mysql"
 )
 
 func TestRebateRepositoryQueryDailyBehaviorRebateConfig(t *testing.T) {
@@ -59,5 +64,58 @@ func TestRebateRepositoryQueryOrderByOutBusinessNo(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestRebateRepositorySaveUserRebateRecordsDuplicate(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewRebateRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `user_behavior_rebate_order`")).
+		WillReturnError(&mysql.MySQLError{Number: 1062, Message: "duplicate"})
+	mock.ExpectRollback()
+
+	err := repo.SaveUserRebateRecords(context.Background(), []rebate.BehaviorRebateAggregate{
+		{
+			UserID: "xiaofuge",
+			Order: rebate.BehaviorRebateOrderEntity{
+				UserID:        "xiaofuge",
+				OrderID:       "rebate-001",
+				BehaviorType:  rebate.BehaviorTypeSign,
+				RebateDesc:    "签到返利积分",
+				RebateType:    rebate.RebateTypeIntegral,
+				RebateConfig:  "10",
+				OutBusinessNo: "20260525",
+				BizID:         "xiaofuge_integral_20260525",
+			},
+			Task: rebate.TaskEntity{
+				UserID:    "xiaofuge",
+				Topic:     rebate.TopicSendRebate,
+				MessageID: "msg-001",
+				Message:   `{"bizId":"xiaofuge_integral_20260525"}`,
+				State:     rebate.TaskStateCreate,
+			},
+		},
+	})
+
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != types.ResponseCodeIndexDup {
+		t.Fatalf("expected duplicate code, got %s", appErr.Code.Code)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestRebateRepositorySaveUserRebateRecordsEmpty(t *testing.T) {
+	db, _ := newMockGormDB(t)
+	repo := NewRebateRepository(db)
+
+	if err := repo.SaveUserRebateRecords(context.Background(), nil); err != nil {
+		t.Fatalf("save empty user rebate records: %v", err)
 	}
 }
