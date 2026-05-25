@@ -23,3 +23,16 @@ func TestClientConsumeWithoutConnection(t *testing.T) {
 		t.Fatalf("expected not connected error, got %v", err)
 	}
 }
+
+func TestClientCloseWithoutConnection(t *testing.T) {
+	var client *Client
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("expected nil close error, got %v", err)
+	}
+
+	client = &Client{}
+	if err := client.Close(); err != nil {
+		t.Fatalf("expected nil close error, got %v", err)
+	}
+}
