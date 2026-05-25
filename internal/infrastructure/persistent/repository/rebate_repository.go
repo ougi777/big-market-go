@@ -139,12 +139,5 @@ func (r *RebateRepository) UpdateTaskSendMessageFail(ctx context.Context, userID
 }
 
 func (r *RebateRepository) updateTaskState(ctx context.Context, userID string, messageID string, state string) error {
-	return r.shardDB(ctx, userID).
-		Model(&po.Task{}).
-		Where("user_id = ? and message_id = ?", userID, messageID).
-		Updates(map[string]any{
-			"state":       state,
-			"update_time": time.Now(),
-		}).
-		Error
+	return setTaskState(ctx, r.db.Shard(r.sharder.DBKey(userID)), userID, messageID, state)
 }
