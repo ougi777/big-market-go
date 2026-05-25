@@ -46,6 +46,10 @@ type RebateRepository interface {
 	SaveRebateIntegralOrder(ctx context.Context, rebateIntegral RebateIntegralEntity) error
 }
 
+type DeliveryRepository interface {
+	DeliverActivityOrder(ctx context.Context, deliveryOrder DeliveryOrderEntity) error
+}
+
 type PartakeRepository interface {
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (ActivityEntity, bool, error)
 	QueryNoUsedRaffleOrder(ctx context.Context, userID string, activityID int64) (UserRaffleOrderEntity, bool, error)

@@ -23,6 +23,7 @@ var _ activity.SkuProductRepository = (*ActivityRepository)(nil)
 var _ activity.SkuStockRepository = (*ActivityRepository)(nil)
 var _ activity.PartakeRepository = (*ActivityRepository)(nil)
 var _ activity.RebateRepository = (*ActivityRepository)(nil)
+var _ activity.DeliveryRepository = (*ActivityRepository)(nil)
 
 func NewActivityRepository(db *gorm.DB) *ActivityRepository {
 	return &ActivityRepository{db: db}
@@ -401,6 +402,46 @@ func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebate
 			return types.NewAppError(types.ResponseCodeIndexDup, err)
 		}
 		return nil
+	})
+}
+
+func (r *ActivityRepository) DeliverActivityOrder(ctx context.Context, deliveryOrder activity.DeliveryOrderEntity) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var orderPO po.RaffleActivityOrder
+		err := tx.
+			Select("user_id", "activity_id", "total_count", "day_count", "month_count", "state").
+			Where("user_id = ? and out_business_no = ?", deliveryOrder.UserID, deliveryOrder.OutBusinessNo).
+			First(&orderPO).
+			Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.NewAppError(types.ResponseCodeIllegalParam, nil)
+		}
+		if err != nil {
+			return err
+		}
+
+		result := tx.Model(&po.RaffleActivityOrder{}).
+			Where("user_id = ? and out_business_no = ? and state = ?", deliveryOrder.UserID, deliveryOrder.OutBusinessNo, activity.ActivityOrderWaitPay).
+			Updates(map[string]any{
+				"state":       activity.ActivityOrderCompleted,
+				"update_time": now,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return types.NewAppError(types.ResponseCodeActivityOrderStateError, nil)
+		}
+
+		return addActivityAccountQuota(tx, activity.CompleteSkuExchangeAggregate{
+			UserID:        deliveryOrder.UserID,
+			ActivityID:    orderPO.ActivityID,
+			TotalCount:    orderPO.TotalCount,
+			DayCount:      orderPO.DayCount,
+			MonthCount:    orderPO.MonthCount,
+			OutBusinessNo: deliveryOrder.OutBusinessNo,
+		}, now)
 	})
 }
 

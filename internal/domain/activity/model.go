@@ -134,6 +134,11 @@ type RebateIntegralEntity struct {
 	OutBusinessNo string
 }
 
+type DeliveryOrderEntity struct {
+	UserID        string
+	OutBusinessNo string
+}
+
 type ActivitySkuStockKey struct {
 	SKU        int64 `json:"sku"`
 	ActivityID int64 `json:"activityId"`

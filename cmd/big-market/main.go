@@ -75,6 +75,7 @@ func main() {
 	activityStockService := activityservice.NewStockService(activityRepository, activityStore, activityStore, rabbitmqClient)
 	activityExchangeService := activityservice.NewExchangeService(activityRepository, activityStockService)
 	activityRebateProcessor := activityservice.NewRebateProcessor(activityRepository)
+	activityDeliveryService := activityservice.NewDeliveryService(activityRepository)
 	awardService := awardservice.NewAwardService(awardRepository, awardRepository, rabbitmqClient)
 	taskService := awardservice.NewTaskService(awardRepository, rabbitmqClient)
 	rebateService := rebateservice.NewRebateService(rebateRepository, rabbitmqClient)
@@ -129,6 +130,10 @@ func main() {
 	if err := sendRebateConsumer.Start(consumerCtx); err != nil {
 		logger.Fatal("start send rebate consumer failed", zap.Error(err))
 	}
+	creditAdjustSuccessConsumer := triggerlistener.NewCreditAdjustSuccessConsumer(rabbitmqClient, activityDeliveryService, logger)
+	if err := creditAdjustSuccessConsumer.Start(consumerCtx); err != nil {
+		logger.Fatal("start credit adjust success consumer failed", zap.Error(err))
+	}
 
 	go func() {
 		logger.Info("big-market go service started", zap.String("addr", cfg.HTTPAddr()))
@@ -143,6 +148,7 @@ func main() {
 	_ = sendAwardConsumer.Stop(context.Background())
 	_ = activitySkuStockZeroConsumer.Stop(context.Background())
 	_ = sendRebateConsumer.Stop(context.Background())
+	_ = creditAdjustSuccessConsumer.Stop(context.Background())
 	scheduler.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
