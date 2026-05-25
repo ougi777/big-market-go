@@ -87,7 +87,7 @@ go vet ./...
 
 ## 后续切片
 
-- 给活动仓储核心事务增加 sqlmock 或集成测试
+- 给活动仓储核心事务增加 sqlmock 或集成测试；优先覆盖 `SaveCreatePartakeOrder`、`SaveCreditPayOrder`、`CompleteCreditPayOrder`
 - 拆分策略仓储中的规则树、规则权重、库存更新代码
 - 补 HTTP 非法参数测试矩阵
 - 补 RabbitMQ 消费者重试与失败日志细节测试
