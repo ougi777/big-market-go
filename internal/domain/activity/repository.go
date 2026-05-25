@@ -12,6 +12,10 @@ type SkuProductRepository interface {
 	QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]SkuProductEntity, error)
 }
 
+type SkuStockStore interface {
+	CacheActivitySkuStockCount(ctx context.Context, key string, stockCount int) error
+}
+
 type Repository interface {
 	AccountRepository
 	SkuProductRepository

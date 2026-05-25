@@ -25,6 +25,17 @@ func NewArmoryService(repo strategy.ArmoryRepository, store strategy.RateTableSt
 	}
 }
 
+func (s *ArmoryService) AssembleLotteryStrategyByActivityID(ctx context.Context, activityID int64) error {
+	strategyID, err := s.repo.QueryStrategyIDByActivityID(ctx, activityID)
+	if err != nil {
+		return err
+	}
+	if strategyID == 0 {
+		return fmt.Errorf("activity strategy is empty: %d", activityID)
+	}
+	return s.AssembleLotteryStrategy(ctx, strategyID)
+}
+
 func (s *ArmoryService) AssembleLotteryStrategy(ctx context.Context, strategyID int64) error {
 	awards, err := s.repo.QueryStrategyAwardList(ctx, strategyID)
 	if err != nil {

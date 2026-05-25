@@ -40,6 +40,32 @@ func TestQueryUserActivityAccountRoute(t *testing.T) {
 	}
 }
 
+func TestActivityArmoryRoute(t *testing.T) {
+	activityArmory := &fakeActivityArmoryService{}
+	strategyArmory := &fakeActivityStrategyArmoryService{}
+	router := NewRouter(RouterOptions{
+		ActivityArmoryService:         activityArmory,
+		ActivityStrategyArmoryService: strategyArmory,
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/armory?activityId=100301", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"data":true`) {
+		t.Fatalf("expected success data true, got %s", recorder.Body.String())
+	}
+	if activityArmory.activityID != 100301 {
+		t.Fatalf("expected activity armory activity id 100301, got %d", activityArmory.activityID)
+	}
+	if strategyArmory.activityID != 100301 {
+		t.Fatalf("expected strategy armory activity id 100301, got %d", strategyArmory.activityID)
+	}
+}
+
 func TestQuerySkuProductListByActivityIDRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		ActivitySkuProductService: &fakeActivitySkuProductService{
@@ -93,4 +119,22 @@ type fakeActivitySkuProductService struct {
 
 func (f *fakeActivitySkuProductService) QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]activity.SkuProductEntity, error) {
 	return f.products, nil
+}
+
+type fakeActivityArmoryService struct {
+	activityID int64
+}
+
+func (f *fakeActivityArmoryService) AssembleActivitySkuByActivityID(ctx context.Context, activityID int64) error {
+	f.activityID = activityID
+	return nil
+}
+
+type fakeActivityStrategyArmoryService struct {
+	activityID int64
+}
+
+func (f *fakeActivityStrategyArmoryService) AssembleLotteryStrategyByActivityID(ctx context.Context, activityID int64) error {
+	f.activityID = activityID
+	return nil
 }

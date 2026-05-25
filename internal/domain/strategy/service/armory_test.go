@@ -57,10 +57,40 @@ func TestArmoryServiceAssembleLotteryStrategy(t *testing.T) {
 	}
 }
 
+func TestArmoryServiceAssembleLotteryStrategyByActivityID(t *testing.T) {
+	repo := &fakeArmoryRepository{
+		strategyID: 100001,
+		awards: []strategy.StrategyAwardEntity{
+			{StrategyID: 100001, AwardID: 101, AwardCountSurplus: 10, AwardRate: 1},
+		},
+		strategyEntity: strategy.StrategyEntity{StrategyID: 100001},
+	}
+	store := newFakeRateTableStore()
+	armory := NewArmoryService(repo, store)
+
+	if err := armory.AssembleLotteryStrategyByActivityID(context.Background(), 100301); err != nil {
+		t.Fatalf("assemble lottery strategy by activity id: %v", err)
+	}
+
+	if repo.activityID != 100301 {
+		t.Fatalf("expected activity id 100301, got %d", repo.activityID)
+	}
+	if store.awardCounts[types.RedisKeyStrategyAwardCount+"100001_101"] != 10 {
+		t.Fatalf("expected award stock 10, got %d", store.awardCounts[types.RedisKeyStrategyAwardCount+"100001_101"])
+	}
+}
+
 type fakeArmoryRepository struct {
+	activityID     int64
+	strategyID     int64
 	awards         []strategy.StrategyAwardEntity
 	strategyEntity strategy.StrategyEntity
 	ruleEntity     strategy.StrategyRuleEntity
+}
+
+func (f *fakeArmoryRepository) QueryStrategyIDByActivityID(ctx context.Context, activityID int64) (int64, error) {
+	f.activityID = activityID
+	return f.strategyID, nil
 }
 
 func (f *fakeArmoryRepository) QueryStrategyAwardList(ctx context.Context, strategyID int64) ([]strategy.StrategyAwardEntity, error) {

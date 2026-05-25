@@ -42,6 +42,7 @@ func main() {
 	redisClient := infrredis.NewClient(cfg.Redis)
 
 	strategyStore := infrredis.NewStrategyStore(redisClient)
+	activityStore := infrredis.NewActivityStore(redisClient)
 	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
 	activityRepository := repository.NewActivityRepository(db)
 	strategyDispatch := repository.NewStrategyDispatch(redisClient)
@@ -57,14 +58,17 @@ func main() {
 	stockService := strategyservice.NewStockService(strategyRepository, strategyStore)
 	activityAccountService := activityservice.NewAccountService(activityRepository)
 	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
+	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
-		Logger:                    logger,
-		ArmoryService:             armoryService,
-		RaffleService:             raffleService,
-		QueryService:              queryService,
-		ActivityAccountService:    activityAccountService,
-		ActivitySkuProductService: activitySkuProductService,
+		Logger:                        logger,
+		ArmoryService:                 armoryService,
+		RaffleService:                 raffleService,
+		QueryService:                  queryService,
+		ActivityAccountService:        activityAccountService,
+		ActivitySkuProductService:     activitySkuProductService,
+		ActivityArmoryService:         activityArmoryService,
+		ActivityStrategyArmoryService: armoryService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),

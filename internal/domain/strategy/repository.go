@@ -13,6 +13,7 @@ type Repository interface {
 }
 
 type ArmoryRepository interface {
+	QueryStrategyIDByActivityID(ctx context.Context, activityID int64) (int64, error)
 	QueryStrategyAwardList(ctx context.Context, strategyID int64) ([]StrategyAwardEntity, error)
 	QueryStrategyEntityByStrategyID(ctx context.Context, strategyID int64) (StrategyEntity, error)
 	QueryStrategyRule(ctx context.Context, strategyID int64, ruleModel string) (StrategyRuleEntity, bool, error)
