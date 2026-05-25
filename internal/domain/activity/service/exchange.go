@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -46,7 +47,7 @@ func NewExchangeService(repo exchangeRepository, stockService exchangeStockServi
 		creditRepo = creditRepos[0]
 	}
 	if creditRepo == nil {
-		panic("credit trade repository is required")
+		creditRepo = missingCreditTradeRepository{}
 	}
 	return &ExchangeService{
 		repo:                 repo,
@@ -59,6 +60,12 @@ func NewExchangeService(repo exchangeRepository, stockService exchangeStockServi
 		businessNoGenerator:  func() (string, error) { return randomNumeric(12) },
 		creditOrderGenerator: func() (string, error) { return randomNumeric(12) },
 	}
+}
+
+type missingCreditTradeRepository struct{}
+
+func (missingCreditTradeRepository) CompleteCreditPayOrder(ctx context.Context, aggregate credit.CompleteSkuExchangeAggregate) error {
+	return errors.New("credit trade repository is not configured")
 }
 
 func (s *ExchangeService) CreditPayExchangeSku(ctx context.Context, userID string, sku int64) (bool, error) {

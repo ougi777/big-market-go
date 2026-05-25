@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -35,7 +36,7 @@ func NewRebateProcessor(repo rebateRepository, creditRepos ...rebateCreditReposi
 		creditRepo = creditRepos[0]
 	}
 	if creditRepo == nil {
-		panic("rebate credit repository is required")
+		creditRepo = missingRebateCreditRepository{}
 	}
 	return &RebateProcessor{
 		repo:             repo,
@@ -43,6 +44,12 @@ func NewRebateProcessor(repo rebateRepository, creditRepos ...rebateCreditReposi
 		now:              time.Now,
 		orderIDGenerator: func() (string, error) { return randomNumeric(12) },
 	}
+}
+
+type missingRebateCreditRepository struct{}
+
+func (missingRebateCreditRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral credit.RebateIntegralEntity) error {
+	return errors.New("rebate credit repository is not configured")
 }
 
 func (p *RebateProcessor) ProcessRebate(ctx context.Context, message rebate.SendRebateMessage) error {
