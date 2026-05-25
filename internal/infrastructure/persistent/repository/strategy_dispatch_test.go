@@ -83,6 +83,72 @@ func TestStrategyDispatchReturnsUnassembledErrorWhenRateRangeMissing(t *testing.
 	}
 }
 
+func TestStrategyDispatchReturnsErrorWhenRateRangeInvalid(t *testing.T) {
+	store := &fakeRateTableStore{
+		values: map[string]string{
+			types.RedisKeyStrategyRateRange + "100001": "bad",
+		},
+	}
+	dispatch := NewStrategyDispatchWithStore(store)
+
+	_, err := dispatch.GetRandomAwardID(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected rate range parse error")
+	}
+}
+
+func TestStrategyDispatchReturnsErrorWhenRateRangeZero(t *testing.T) {
+	store := &fakeRateTableStore{
+		values: map[string]string{
+			types.RedisKeyStrategyRateRange + "100001": "0",
+		},
+	}
+	dispatch := NewStrategyDispatchWithStore(store)
+
+	_, err := dispatch.GetRandomAwardID(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected positive rate range error")
+	}
+}
+
+func TestStrategyDispatchReturnsUnassembledErrorWhenRateTableMissing(t *testing.T) {
+	store := &fakeRateTableStore{
+		values: map[string]string{
+			types.RedisKeyStrategyRateRange + "100001": "1",
+		},
+		hErr: redis.Nil,
+	}
+	dispatch := NewStrategyDispatchWithStore(store)
+
+	_, err := dispatch.GetRandomAwardID(context.Background(), 100001)
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != types.ResponseCodeUnassembledStrategy {
+		t.Fatalf("expected unassembled strategy error, got %s", appErr.Code.Code)
+	}
+}
+
+func TestStrategyDispatchReturnsErrorWhenAwardIDInvalid(t *testing.T) {
+	store := &fakeRateTableStore{
+		values: map[string]string{
+			types.RedisKeyStrategyRateRange + "100001": "1",
+		},
+		hashes: map[string]map[string]string{
+			types.RedisKeyStrategyRateTable + "100001": {
+				"0": "bad",
+			},
+		},
+	}
+	dispatch := NewStrategyDispatchWithStore(store)
+
+	_, err := dispatch.GetRandomAwardID(context.Background(), 100001)
+	if err == nil {
+		t.Fatal("expected award id parse error")
+	}
+}
+
 func TestStrategyDispatchSubtractionAwardStock(t *testing.T) {
 	store := &fakeRateTableStore{decrValue: 9, setNXValue: true}
 	dispatch := NewStrategyDispatchWithStore(store)
