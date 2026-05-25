@@ -43,7 +43,6 @@ func TestNewLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new logger: %v", err)
 	}
-	defer func() { _ = logger.Sync() }()
 
 	if !logger.Core().Enabled(-1) {
 		t.Fatal("expected debug log enabled")
@@ -55,7 +54,6 @@ func TestNewLoggerFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new logger: %v", err)
 	}
-	defer func() { _ = logger.Sync() }()
 
 	if logger.Core().Enabled(-1) {
 		t.Fatal("expected debug log disabled for fallback info level")
