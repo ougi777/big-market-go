@@ -6,7 +6,9 @@ import (
 )
 
 type RouterOptions struct {
-	Logger *zap.Logger
+	Logger        *zap.Logger
+	ArmoryService strategyArmoryService
+	RaffleService raffleStrategyService
 }
 
 func NewRouter(opts RouterOptions) *gin.Engine {
@@ -15,14 +17,16 @@ func NewRouter(opts RouterOptions) *gin.Engine {
 	router.Use(requestLogger(opts.Logger))
 
 	registerHealthRoutes(router)
-	registerV1Routes(router)
+	registerV1Routes(router, opts)
 
 	return router
 }
 
-func registerV1Routes(router *gin.Engine) {
+func registerV1Routes(router *gin.Engine, opts RouterOptions) {
 	v1 := router.Group("/api/v1")
 	v1.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"code": "0000", "message": "success", "data": "pong"})
 	})
+
+	registerRaffleStrategyRoutes(v1, opts)
 }

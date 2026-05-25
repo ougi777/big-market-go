@@ -10,6 +10,11 @@ import (
 	"time"
 
 	"bm-go/internal/config"
+	"bm-go/internal/domain/strategy/rule/chain"
+	strategyservice "bm-go/internal/domain/strategy/service"
+	"bm-go/internal/infrastructure/persistent/mysql"
+	"bm-go/internal/infrastructure/persistent/repository"
+	infrredis "bm-go/internal/infrastructure/redis"
 	triggerhttp "bm-go/internal/trigger/http"
 
 	"go.uber.org/zap"
@@ -27,7 +32,24 @@ func main() {
 	}
 	defer func() { _ = logger.Sync() }()
 
-	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{Logger: logger})
+	db, err := mysql.Open(cfg.MySQL)
+	if err != nil {
+		logger.Fatal("open mysql failed", zap.Error(err))
+	}
+	redisClient := infrredis.NewClient(cfg.Redis)
+
+	strategyRepository := repository.NewStrategyRepository(db)
+	strategyStore := infrredis.NewStrategyStore(redisClient)
+	strategyDispatch := repository.NewStrategyDispatch(redisClient)
+	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
+	armoryService := strategyservice.NewArmoryService(strategyRepository, strategyStore)
+	raffleService := strategyservice.NewRaffleService(chainFactory)
+
+	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
+		Logger:        logger,
+		ArmoryService: armoryService,
+		RaffleService: raffleService,
+	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),
 		Handler:           router,

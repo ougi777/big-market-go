@@ -41,3 +41,10 @@ go run ./cmd/big-market
 ```text
 GET /health
 ```
+
+策略接口：
+
+```text
+GET  /api/v1/raffle/strategy/strategy_armory?strategyId=100001
+POST /api/v1/raffle/strategy/random_raffle
+```
