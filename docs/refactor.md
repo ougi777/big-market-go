@@ -35,6 +35,20 @@
 - `activity_stock_repository.go`：活动 SKU 库存落库更新
 - `activity_task_repository.go`：活动消息任务状态更新
 
+## 策略仓储拆分
+
+策略仓储按抽奖策略核心能力拆分为多个文件，仍由 `StrategyRepository` 统一实现领域接口：
+
+- `strategy_repository.go`：结构体、构造函数、DB helper、接口断言
+- `strategy_base_repository.go`：策略基础查询、活动 ID 到策略 ID 映射
+- `strategy_award_repository.go`：策略奖品列表与单个奖品查询
+- `strategy_rule_repository.go`：策略规则、奖品规则模型、规则值、锁规则统计
+- `strategy_rule_tree_repository.go`：规则树、规则节点、规则连线装配查询
+- `strategy_rule_weight_repository.go`：权重规则解析与权重奖品查询
+- `strategy_activity_account_repository.go`：活动账户参与次数、日参与次数、今日抽奖次数查询
+- `strategy_stock_repository.go`：策略奖品库存扣减队列与库存落库更新
+- `strategy_dispatch.go`：Redis 概率表随机调度
+
 ## 验证命令
 
 每个重构切片完成后执行：
