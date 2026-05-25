@@ -8,4 +8,5 @@ const (
 	RedisKeyStrategyAwardCount      = "strategy_award_count_key_"
 	RedisKeyStrategyAwardCountQueue = "strategy_award_count_query_key"
 	RedisKeyActivitySkuStockCount   = "activity_sku_stock_count_key_"
+	RedisKeyActivitySkuStockQueue   = "activity_sku_count_query_key"
 )

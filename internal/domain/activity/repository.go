@@ -16,6 +16,16 @@ type SkuStockStore interface {
 	CacheActivitySkuStockCount(ctx context.Context, key string, stockCount int) error
 }
 
+type SkuStockQueue interface {
+	TakeActivitySkuStock(ctx context.Context) (ActivitySkuStockKey, bool, error)
+	ClearActivitySkuStockQueue(ctx context.Context) error
+}
+
+type SkuStockRepository interface {
+	UpdateActivitySkuStock(ctx context.Context, sku int64) error
+	ClearActivitySkuStock(ctx context.Context, sku int64) error
+}
+
 type PartakeRepository interface {
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (ActivityEntity, bool, error)
 	QueryNoUsedRaffleOrder(ctx context.Context, userID string, activityID int64) (UserRaffleOrderEntity, bool, error)

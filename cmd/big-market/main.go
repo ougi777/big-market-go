@@ -69,6 +69,7 @@ func main() {
 	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
 	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
 	activityPartakeService := activityservice.NewPartakeService(activityRepository)
+	activityStockService := activityservice.NewStockService(activityRepository, activityStore)
 	awardService := awardservice.NewAwardService(awardRepository, awardRepository, rabbitmqClient)
 	taskService := awardservice.NewTaskService(awardRepository, rabbitmqClient)
 	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
@@ -95,6 +96,10 @@ func main() {
 	if _, err := scheduler.Add("*/5 * * * * *", updateAwardStockJob.Exec); err != nil {
 		logger.Fatal("register update award stock job failed", zap.Error(err))
 	}
+	updateActivitySkuStockJob := triggerjob.NewUpdateActivitySkuStockJob(activityStockService, logger)
+	if _, err := scheduler.Add("*/5 * * * * *", updateActivitySkuStockJob.Exec); err != nil {
+		logger.Fatal("register update activity sku stock job failed", zap.Error(err))
+	}
 	sendMessageTaskJob := triggerjob.NewSendMessageTaskJob(taskService, logger)
 	if _, err := scheduler.Add("*/5 * * * * *", sendMessageTaskJob.Exec); err != nil {
 		logger.Fatal("register send message task job failed", zap.Error(err))
@@ -106,6 +111,10 @@ func main() {
 	defer stopConsumer()
 	if err := sendAwardConsumer.Start(consumerCtx); err != nil {
 		logger.Fatal("start send award consumer failed", zap.Error(err))
+	}
+	activitySkuStockZeroConsumer := triggerlistener.NewActivitySkuStockZeroConsumer(rabbitmqClient, activityStockService, logger)
+	if err := activitySkuStockZeroConsumer.Start(consumerCtx); err != nil {
+		logger.Fatal("start activity sku stock zero consumer failed", zap.Error(err))
 	}
 
 	go func() {
@@ -119,6 +128,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	_ = sendAwardConsumer.Stop(context.Background())
+	_ = activitySkuStockZeroConsumer.Stop(context.Background())
 	scheduler.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

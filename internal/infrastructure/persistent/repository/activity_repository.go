@@ -19,6 +19,7 @@ type ActivityRepository struct {
 var _ activity.Repository = (*ActivityRepository)(nil)
 var _ activity.AccountRepository = (*ActivityRepository)(nil)
 var _ activity.SkuProductRepository = (*ActivityRepository)(nil)
+var _ activity.SkuStockRepository = (*ActivityRepository)(nil)
 var _ activity.PartakeRepository = (*ActivityRepository)(nil)
 
 func NewActivityRepository(db *gorm.DB) *ActivityRepository {
@@ -204,6 +205,28 @@ func (r *ActivityRepository) QuerySkuProductListByActivityID(ctx context.Context
 		})
 	}
 	return products, nil
+}
+
+func (r *ActivityRepository) UpdateActivitySkuStock(ctx context.Context, sku int64) error {
+	return r.db.WithContext(ctx).
+		Model(&po.RaffleActivitySku{}).
+		Where("sku = ? and stock_count_surplus > 0", sku).
+		Updates(map[string]any{
+			"stock_count_surplus": gorm.Expr("stock_count_surplus - ?", 1),
+			"update_time":         time.Now(),
+		}).
+		Error
+}
+
+func (r *ActivityRepository) ClearActivitySkuStock(ctx context.Context, sku int64) error {
+	return r.db.WithContext(ctx).
+		Model(&po.RaffleActivitySku{}).
+		Where("sku = ?", sku).
+		Updates(map[string]any{
+			"stock_count_surplus": 0,
+			"update_time":         time.Now(),
+		}).
+		Error
 }
 
 func (r *ActivityRepository) queryActivityCount(ctx context.Context, activityCountID int64) (activity.ActivityCountEntity, error) {

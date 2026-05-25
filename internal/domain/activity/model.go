@@ -3,10 +3,11 @@ package activity
 import "time"
 
 const (
-	ActivityStateOpen     = "open"
-	UserRaffleOrderCreate = "create"
-	UserRaffleOrderUsed   = "used"
-	UserRaffleOrderCancel = "cancel"
+	ActivityStateOpen         = "open"
+	TopicActivitySkuStockZero = "activity_sku_stock_zero"
+	UserRaffleOrderCreate     = "create"
+	UserRaffleOrderUsed       = "used"
+	UserRaffleOrderCancel     = "cancel"
 )
 
 type ActivityEntity struct {
@@ -54,6 +55,11 @@ type SkuProductEntity struct {
 	StockCountSurplus int
 	ProductAmount     float64
 	ActivityCount     ActivityCountEntity
+}
+
+type ActivitySkuStockKey struct {
+	SKU        int64 `json:"sku"`
+	ActivityID int64 `json:"activityId"`
 }
 
 type ActivityCountEntity struct {
