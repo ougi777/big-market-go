@@ -101,15 +101,8 @@ func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 		ActivityRebateService:         rebateService,
 	})
 
-	scheduler := triggerjob.NewScheduler()
-	jobSpec := cfg.JobSpec()
-	if _, err := scheduler.Add(jobSpec, triggerjob.NewUpdateAwardStockJob(stockService, logger).Exec); err != nil {
-		return nil, err
-	}
-	if _, err := scheduler.Add(jobSpec, triggerjob.NewUpdateActivitySkuStockJob(activityStockService, logger).Exec); err != nil {
-		return nil, err
-	}
-	if _, err := scheduler.Add(jobSpec, triggerjob.NewSendMessageTaskJob(taskService, logger).Exec); err != nil {
+	scheduler, err := newScheduler(cfg.JobSpec(), logger, stockService, activityStockService, taskService)
+	if err != nil {
 		return nil, err
 	}
 
@@ -132,6 +125,26 @@ func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 			triggerlistener.NewCreditAdjustSuccessConsumer(rabbitmqClient, activityDeliveryService, logger),
 		},
 	}, nil
+}
+
+func newScheduler(
+	jobSpec string,
+	logger *zap.Logger,
+	stockService *strategyservice.StockService,
+	activityStockService *activityservice.StockService,
+	taskService *taskservice.Service,
+) (*triggerjob.Scheduler, error) {
+	scheduler := triggerjob.NewScheduler()
+	if _, err := scheduler.Add(jobSpec, triggerjob.NewUpdateAwardStockJob(stockService, logger).Exec); err != nil {
+		return nil, err
+	}
+	if _, err := scheduler.Add(jobSpec, triggerjob.NewUpdateActivitySkuStockJob(activityStockService, logger).Exec); err != nil {
+		return nil, err
+	}
+	if _, err := scheduler.Add(jobSpec, triggerjob.NewSendMessageTaskJob(taskService, logger).Exec); err != nil {
+		return nil, err
+	}
+	return scheduler, nil
 }
 
 func (a *Application) Start(ctx context.Context) error {
