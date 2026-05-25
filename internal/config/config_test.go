@@ -14,6 +14,18 @@ func TestConfigHTTPAddr(t *testing.T) {
 	}
 }
 
+func TestConfigJobSpec(t *testing.T) {
+	cfg := Config{Job: JobConfig{Spec: "*/10 * * * * *"}}
+	if cfg.JobSpec() != "*/10 * * * * *" {
+		t.Fatalf("expected configured job spec, got %s", cfg.JobSpec())
+	}
+
+	cfg.Job.Spec = " "
+	if cfg.JobSpec() != "*/5 * * * * *" {
+		t.Fatalf("expected fallback job spec, got %s", cfg.JobSpec())
+	}
+}
+
 func TestSetDefaults(t *testing.T) {
 	v := viper.New()
 	setDefaults(v)

@@ -84,6 +84,14 @@ func (c Config) HTTPAddr() string {
 	return fmt.Sprintf(":%d", c.Server.Port)
 }
 
+func (c Config) JobSpec() string {
+	spec := strings.TrimSpace(c.Job.Spec)
+	if spec == "" {
+		return "*/5 * * * * *"
+	}
+	return spec
+}
+
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.port", 8091)
 	v.SetDefault("mysql.max_idle_conns", 10)

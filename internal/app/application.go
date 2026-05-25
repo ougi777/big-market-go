@@ -102,13 +102,14 @@ func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 	})
 
 	scheduler := triggerjob.NewScheduler()
-	if _, err := scheduler.Add(cfg.Job.Spec, triggerjob.NewUpdateAwardStockJob(stockService, logger).Exec); err != nil {
+	jobSpec := cfg.JobSpec()
+	if _, err := scheduler.Add(jobSpec, triggerjob.NewUpdateAwardStockJob(stockService, logger).Exec); err != nil {
 		return nil, err
 	}
-	if _, err := scheduler.Add(cfg.Job.Spec, triggerjob.NewUpdateActivitySkuStockJob(activityStockService, logger).Exec); err != nil {
+	if _, err := scheduler.Add(jobSpec, triggerjob.NewUpdateActivitySkuStockJob(activityStockService, logger).Exec); err != nil {
 		return nil, err
 	}
-	if _, err := scheduler.Add(cfg.Job.Spec, triggerjob.NewSendMessageTaskJob(taskService, logger).Exec); err != nil {
+	if _, err := scheduler.Add(jobSpec, triggerjob.NewSendMessageTaskJob(taskService, logger).Exec); err != nil {
 		return nil, err
 	}
 
