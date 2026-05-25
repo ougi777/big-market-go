@@ -87,6 +87,14 @@ POST /api/v1/raffle/activity/credit_pay_exchange_sku
 
 完整请求示例见 `docs/api.md`。
 
+## 重构文档
+
+```text
+docs/refactor.md
+```
+
+该文档记录 Go 版重构进度、活动仓储拆分、策略仓储拆分、测试覆盖进度和后续切片计划。
+
 ## 分库分表配置
 
 默认使用单库单表：
