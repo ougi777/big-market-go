@@ -22,7 +22,9 @@ type ActivityRepository struct {
 var _ activity.Repository = (*ActivityRepository)(nil)
 var _ activity.AccountRepository = (*ActivityRepository)(nil)
 var _ activity.CreditAccountRepository = (*ActivityRepository)(nil)
+var _ activity.CreditTradeRepository = (*ActivityRepository)(nil)
 var _ credit.AccountRepository = (*ActivityRepository)(nil)
+var _ credit.TradeRepository = (*ActivityRepository)(nil)
 var _ activity.SkuProductRepository = (*ActivityRepository)(nil)
 var _ activity.SkuStockRepository = (*ActivityRepository)(nil)
 var _ activity.PartakeRepository = (*ActivityRepository)(nil)
@@ -324,7 +326,7 @@ func (r *ActivityRepository) SaveCreditPayOrder(ctx context.Context, aggregate a
 	return nil
 }
 
-func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggregate activity.CompleteSkuExchangeAggregate) error {
+func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggregate credit.CompleteSkuExchangeAggregate) error {
 	now := time.Now()
 	return r.shardDB(ctx, aggregate.UserID).Transaction(func(tx *gorm.DB) error {
 		if err := adjustUserCreditAccount(tx, aggregate.CreditOrder); err != nil {
@@ -384,7 +386,7 @@ func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate a
 		if err := tx.Table(r.sharder.Table("raffle_activity_order", aggregate.UserID)).Create(&orderPO).Error; err != nil {
 			return types.NewAppError(types.ResponseCodeIndexDup, err)
 		}
-		return addActivityAccountQuota(tx, activity.CompleteSkuExchangeAggregate{
+		return addActivityAccountQuota(tx, credit.CompleteSkuExchangeAggregate{
 			UserID:        aggregate.UserID,
 			ActivityID:    aggregate.ActivityID,
 			TotalCount:    order.TotalCount,
@@ -395,10 +397,10 @@ func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate a
 	})
 }
 
-func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral activity.RebateIntegralEntity) error {
+func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral credit.RebateIntegralEntity) error {
 	now := time.Now()
 	return r.shardDB(ctx, rebateIntegral.UserID).Transaction(func(tx *gorm.DB) error {
-		creditOrder := activity.CreditOrderEntity{
+		creditOrder := credit.OrderEntity{
 			UserID:        rebateIntegral.UserID,
 			OrderID:       rebateIntegral.OrderID,
 			TradeName:     "REBATE",
@@ -455,7 +457,7 @@ func (r *ActivityRepository) DeliverActivityOrder(ctx context.Context, deliveryO
 			return types.NewAppError(types.ResponseCodeActivityOrderStateError, nil)
 		}
 
-		return addActivityAccountQuota(tx, activity.CompleteSkuExchangeAggregate{
+		return addActivityAccountQuota(tx, credit.CompleteSkuExchangeAggregate{
 			UserID:        deliveryOrder.UserID,
 			ActivityID:    orderPO.ActivityID,
 			TotalCount:    orderPO.TotalCount,
@@ -649,7 +651,7 @@ func adjustOrCreateUserCreditAccount(tx *gorm.DB, creditOrder credit.OrderEntity
 	return nil
 }
 
-func addActivityAccountQuota(tx *gorm.DB, aggregate activity.CompleteSkuExchangeAggregate, now time.Time) error {
+func addActivityAccountQuota(tx *gorm.DB, aggregate credit.CompleteSkuExchangeAggregate, now time.Time) error {
 	account := po.RaffleActivityAccount{
 		UserID:            aggregate.UserID,
 		ActivityID:        aggregate.ActivityID,

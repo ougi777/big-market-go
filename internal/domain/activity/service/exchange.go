@@ -16,7 +16,7 @@ type exchangeRepository interface {
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (activity.ActivityEntity, bool, error)
 	QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (activity.SkuExchangeOrderEntity, bool, error)
 	SaveCreditPayOrder(ctx context.Context, aggregate activity.CreateSkuExchangeOrderAggregate) error
-	CompleteCreditPayOrder(ctx context.Context, aggregate activity.CompleteSkuExchangeAggregate) error
+	CompleteCreditPayOrder(ctx context.Context, aggregate credit.CompleteSkuExchangeAggregate) error
 	UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error
 	UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error
 }
@@ -159,10 +159,10 @@ func (s *ExchangeService) payCreditOrder(ctx context.Context, order activity.Sku
 	if err != nil {
 		return false, err
 	}
-	err = s.repo.CompleteCreditPayOrder(ctx, activity.CompleteSkuExchangeAggregate{
+	err = s.repo.CompleteCreditPayOrder(ctx, credit.CompleteSkuExchangeAggregate{
 		UserID:        order.UserID,
 		OutBusinessNo: order.OutBusinessNo,
-		CreditOrder: activity.CreditOrderEntity{
+		CreditOrder: credit.OrderEntity{
 			UserID:        order.UserID,
 			OrderID:       creditOrderID,
 			TradeName:     "CONVERT_SKU",
@@ -170,7 +170,7 @@ func (s *ExchangeService) payCreditOrder(ctx context.Context, order activity.Sku
 			TradeAmount:   -order.PayAmount,
 			OutBusinessNo: order.OutBusinessNo,
 		},
-		SendTask: activity.TaskEntity{
+		SendTask: credit.TaskEntity{
 			UserID:    order.UserID,
 			Topic:     credit.TopicCreditAdjustSuccess,
 			MessageID: messageID,

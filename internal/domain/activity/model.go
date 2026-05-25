@@ -98,16 +98,7 @@ type CreateSkuExchangeOrderAggregate struct {
 	ActivityOrder ActivityOrderEntity
 }
 
-type CompleteSkuExchangeAggregate struct {
-	UserID        string
-	ActivityID    int64
-	TotalCount    int
-	DayCount      int
-	MonthCount    int
-	OutBusinessNo string
-	CreditOrder   CreditOrderEntity
-	SendTask      TaskEntity
-}
+type CompleteSkuExchangeAggregate = credit.CompleteSkuExchangeAggregate
 
 type RebateSkuOrderEntity struct {
 	UserID        string
@@ -129,13 +120,7 @@ type DeliveryOrderEntity struct {
 	OutBusinessNo string
 }
 
-type TaskEntity struct {
-	UserID    string
-	Topic     string
-	MessageID string
-	Message   string
-	State     string
-}
+type TaskEntity = credit.TaskEntity
 
 type ActivitySkuStockKey struct {
 	SKU        int64 `json:"sku"`

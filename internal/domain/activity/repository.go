@@ -12,6 +12,8 @@ type AccountRepository interface {
 
 type CreditAccountRepository = creditdomain.AccountRepository
 
+type CreditTradeRepository = creditdomain.TradeRepository
+
 type SkuProductRepository interface {
 	QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]SkuProductEntity, error)
 	QuerySkuProductBySKU(ctx context.Context, sku int64) (SkuProductEntity, bool, error)
@@ -36,16 +38,16 @@ type SkuStockRepository interface {
 type SkuExchangeRepository interface {
 	QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (SkuExchangeOrderEntity, bool, error)
 	SaveCreditPayOrder(ctx context.Context, aggregate CreateSkuExchangeOrderAggregate) error
-	CompleteCreditPayOrder(ctx context.Context, aggregate CompleteSkuExchangeAggregate) error
 	UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error
 	UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error
+	CreditTradeRepository
 }
 
 type RebateRepository interface {
 	QuerySkuProductBySKU(ctx context.Context, sku int64) (SkuProductEntity, bool, error)
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (ActivityEntity, bool, error)
 	SaveRebateSkuOrder(ctx context.Context, aggregate CreateRebateSkuOrderAggregate) error
-	SaveRebateIntegralOrder(ctx context.Context, rebateIntegral RebateIntegralEntity) error
+	CreditTradeRepository
 }
 
 type DeliveryRepository interface {
@@ -64,6 +66,7 @@ type PartakeRepository interface {
 type Repository interface {
 	AccountRepository
 	CreditAccountRepository
+	CreditTradeRepository
 	SkuProductRepository
 	SkuExchangeRepository
 	PartakeRepository

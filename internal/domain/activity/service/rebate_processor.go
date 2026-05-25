@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/domain/credit"
 	"bm-go/internal/domain/rebate"
 	"bm-go/internal/types"
 )
@@ -15,7 +16,7 @@ type rebateRepository interface {
 	QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error)
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (activity.ActivityEntity, bool, error)
 	SaveRebateSkuOrder(ctx context.Context, aggregate activity.CreateRebateSkuOrderAggregate) error
-	SaveRebateIntegralOrder(ctx context.Context, rebateIntegral activity.RebateIntegralEntity) error
+	SaveRebateIntegralOrder(ctx context.Context, rebateIntegral credit.RebateIntegralEntity) error
 }
 
 type RebateProcessor struct {
@@ -102,7 +103,7 @@ func (p *RebateProcessor) processIntegral(ctx context.Context, message rebate.Se
 	if err != nil {
 		return err
 	}
-	return p.repo.SaveRebateIntegralOrder(ctx, activity.RebateIntegralEntity{
+	return p.repo.SaveRebateIntegralOrder(ctx, credit.RebateIntegralEntity{
 		UserID:        message.UserID,
 		OrderID:       orderID,
 		TradeAmount:   amount,
