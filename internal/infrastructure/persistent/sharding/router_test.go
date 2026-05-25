@@ -53,3 +53,33 @@ func TestRouterTableDisabled(t *testing.T) {
 		t.Fatalf("expected base table, got %s", table)
 	}
 }
+
+func TestRouterDefaultCountWhenInvalid(t *testing.T) {
+	router := NewRouterWithDBCount(0, 0)
+
+	if router.DBCount != 1 || router.TableCount != 1 {
+		t.Fatalf("expected default count 1/1, got %d/%d", router.DBCount, router.TableCount)
+	}
+	if table := router.Table("raffle_activity_order", "xiaofuge"); table != "raffle_activity_order" {
+		t.Fatalf("expected base table, got %s", table)
+	}
+}
+
+func TestRouterTableEmptyKey(t *testing.T) {
+	router := NewRouterWithDBCount(2, 4)
+
+	if table := router.Table("raffle_activity_order", ""); table != "raffle_activity_order" {
+		t.Fatalf("expected base table, got %s", table)
+	}
+}
+
+func TestRouterDBKeyDefault(t *testing.T) {
+	router := NewRouterWithDBCount(1, 4)
+
+	if dbKey := router.DBKey("xiaofuge"); dbKey != "default" {
+		t.Fatalf("expected default db, got %s", dbKey)
+	}
+	if dbKey := NewRouterWithDBCount(2, 4).DBKey(""); dbKey != "default" {
+		t.Fatalf("expected default db for empty key, got %s", dbKey)
+	}
+}
