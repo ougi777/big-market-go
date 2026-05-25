@@ -1,6 +1,9 @@
 package strategy
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 type StrategyEntity struct {
 	StrategyID    int64
@@ -80,19 +83,24 @@ func (s StrategyRuleEntity) RuleWeightValues() map[string][]int {
 				continue
 			}
 
-			var awardID int
-			for _, r := range value {
-				if r < '0' || r > '9' {
-					awardID = 0
-					break
-				}
-				awardID = awardID*10 + int(r-'0')
-			}
-			if awardID > 0 {
+			awardID, err := strconv.Atoi(value)
+			if err == nil && awardID > 0 {
 				awardIDs = append(awardIDs, awardID)
 			}
 		}
 		result[group] = awardIDs
 	}
 	return result
+}
+
+type RuleWeight struct {
+	RuleValue string
+	Weight    int
+	AwardIDs  []int
+	AwardList []RuleWeightAward
+}
+
+type RuleWeightAward struct {
+	AwardID    int
+	AwardTitle string
 }

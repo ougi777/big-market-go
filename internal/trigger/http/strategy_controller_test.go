@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"bm-go/internal/domain/strategy/rule/chain"
+	strategyservice "bm-go/internal/domain/strategy/service"
 )
 
 func TestStrategyArmoryRoute(t *testing.T) {
@@ -45,6 +46,64 @@ func TestRandomRaffleRoute(t *testing.T) {
 	}
 }
 
+func TestQueryRaffleAwardListRoute(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		QueryService: &fakeQueryService{
+			awards: []strategyservice.RaffleAward{
+				{
+					AwardID:            101,
+					AwardTitle:         "积分",
+					AwardSubtitle:      "抽奖1次后解锁",
+					Sort:               1,
+					AwardRuleLockCount: 1,
+					HasAwardRuleLock:   true,
+					IsAwardUnlock:      true,
+				},
+			},
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/query_raffle_award_list", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"awardTitle":"积分"`) {
+		t.Fatalf("expected award title, got %s", recorder.Body.String())
+	}
+}
+
+func TestQueryRaffleStrategyRuleWeightRoute(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		QueryService: &fakeQueryService{
+			ruleWeights: []strategyservice.RaffleStrategyRuleWeight{
+				{
+					RuleWeightCount:                  4000,
+					UserActivityAccountTotalUseCount: 4500,
+					StrategyAwards: []strategyservice.RuleWeightAward{
+						{AwardID: 101, AwardTitle: "积分"},
+					},
+				},
+			},
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/query_raffle_strategy_rule_weight", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"ruleWeightCount":4000`) {
+		t.Fatalf("expected rule weight count, got %s", recorder.Body.String())
+	}
+}
+
 type fakeArmoryService struct{}
 
 func (f *fakeArmoryService) AssembleLotteryStrategy(ctx context.Context, strategyID int64) error {
@@ -57,4 +116,17 @@ type fakeRaffleService struct {
 
 func (f *fakeRaffleService) PerformRaffle(ctx context.Context, userID string, strategyID int64) (chain.AwardResult, error) {
 	return chain.AwardResult{AwardID: f.awardID}, nil
+}
+
+type fakeQueryService struct {
+	awards      []strategyservice.RaffleAward
+	ruleWeights []strategyservice.RaffleStrategyRuleWeight
+}
+
+func (f *fakeQueryService) QueryRaffleAwardList(ctx context.Context, activityID int64, userID string) ([]strategyservice.RaffleAward, error) {
+	return f.awards, nil
+}
+
+func (f *fakeQueryService) QueryRaffleStrategyRuleWeight(ctx context.Context, activityID int64, userID string) ([]strategyservice.RaffleStrategyRuleWeight, error) {
+	return f.ruleWeights, nil
 }

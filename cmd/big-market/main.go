@@ -44,11 +44,13 @@ func main() {
 	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
 	armoryService := strategyservice.NewArmoryService(strategyRepository, strategyStore)
 	raffleService := strategyservice.NewRaffleService(chainFactory)
+	queryService := strategyservice.NewQueryService(strategyRepository)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
 		Logger:        logger,
 		ArmoryService: armoryService,
 		RaffleService: raffleService,
+		QueryService:  queryService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),

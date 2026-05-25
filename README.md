@@ -47,4 +47,6 @@ GET /health
 ```text
 GET  /api/v1/raffle/strategy/strategy_armory?strategyId=100001
 POST /api/v1/raffle/strategy/random_raffle
+POST /api/v1/raffle/strategy/query_raffle_award_list
+POST /api/v1/raffle/strategy/query_raffle_strategy_rule_weight
 ```

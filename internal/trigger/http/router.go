@@ -9,6 +9,7 @@ type RouterOptions struct {
 	Logger        *zap.Logger
 	ArmoryService strategyArmoryService
 	RaffleService raffleStrategyService
+	QueryService  strategyQueryService
 }
 
 func NewRouter(opts RouterOptions) *gin.Engine {
