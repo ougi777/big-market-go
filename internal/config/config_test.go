@@ -36,6 +36,9 @@ func TestSetDefaults(t *testing.T) {
 	if v.GetString("log.level") != "info" {
 		t.Fatalf("expected default log level info, got %s", v.GetString("log.level"))
 	}
+	if v.GetString("job.spec") != "*/5 * * * * *" {
+		t.Fatalf("expected default job spec, got %s", v.GetString("job.spec"))
+	}
 }
 
 func TestNewLogger(t *testing.T) {

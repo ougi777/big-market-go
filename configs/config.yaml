@@ -21,3 +21,6 @@ rabbitmq:
 
 log:
   level: info
+
+job:
+  spec: "*/5 * * * * *"

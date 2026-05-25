@@ -37,8 +37,6 @@ type Application struct {
 	consumerCancel context.CancelFunc
 }
 
-const defaultJobSpec = "*/5 * * * * *"
-
 func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 	if logger == nil {
 		logger = zap.NewNop()
@@ -104,13 +102,13 @@ func New(cfg *config.Config, logger *zap.Logger) (*Application, error) {
 	})
 
 	scheduler := triggerjob.NewScheduler()
-	if _, err := scheduler.Add(defaultJobSpec, triggerjob.NewUpdateAwardStockJob(stockService, logger).Exec); err != nil {
+	if _, err := scheduler.Add(cfg.Job.Spec, triggerjob.NewUpdateAwardStockJob(stockService, logger).Exec); err != nil {
 		return nil, err
 	}
-	if _, err := scheduler.Add(defaultJobSpec, triggerjob.NewUpdateActivitySkuStockJob(activityStockService, logger).Exec); err != nil {
+	if _, err := scheduler.Add(cfg.Job.Spec, triggerjob.NewUpdateActivitySkuStockJob(activityStockService, logger).Exec); err != nil {
 		return nil, err
 	}
-	if _, err := scheduler.Add(defaultJobSpec, triggerjob.NewSendMessageTaskJob(taskService, logger).Exec); err != nil {
+	if _, err := scheduler.Add(cfg.Job.Spec, triggerjob.NewSendMessageTaskJob(taskService, logger).Exec); err != nil {
 		return nil, err
 	}
 

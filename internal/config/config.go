@@ -15,6 +15,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	RabbitMQ RabbitMQConfig `mapstructure:"rabbitmq"`
 	Log      LogConfig      `mapstructure:"log"`
+	Job      JobConfig      `mapstructure:"job"`
 }
 
 type ServerConfig struct {
@@ -49,6 +50,10 @@ type RabbitMQConfig struct {
 
 type LogConfig struct {
 	Level string `mapstructure:"level"`
+}
+
+type JobConfig struct {
+	Spec string `mapstructure:"spec"`
 }
 
 func Load() (*Config, error) {
@@ -88,4 +93,5 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("redis.addr", "localhost:16379")
 	v.SetDefault("rabbitmq.url", "amqp://admin:admin@localhost:5672/")
 	v.SetDefault("log.level", "info")
+	v.SetDefault("job.spec", "*/5 * * * * *")
 }
