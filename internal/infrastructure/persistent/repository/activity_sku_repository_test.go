@@ -2,10 +2,16 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
+	"time"
+
+	"bm-go/internal/domain/activity"
+	"bm-go/internal/types"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/go-sql-driver/mysql"
 )
 
 func TestActivityRepositoryQuerySkuProductBySKU(t *testing.T) {
@@ -43,6 +49,47 @@ func TestActivityRepositoryQuerySkuProductBySKU(t *testing.T) {
 	}
 	if product.SKU != 9011 || product.ActivityID != 100301 || product.ActivityCount.TotalCount != 100 {
 		t.Fatalf("unexpected product: %+v", product)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
+func TestActivityRepositorySaveCreditPayOrderDuplicate(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewActivityRepository(db)
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.Local)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `raffle_activity_order`")).
+		WillReturnError(&mysql.MySQLError{Number: 1062, Message: "duplicate"})
+	mock.ExpectRollback()
+
+	err := repo.SaveCreditPayOrder(context.Background(), activity.CreateSkuExchangeOrderAggregate{
+		UserID:     "xiaofuge",
+		ActivityID: 100301,
+		ActivityOrder: activity.ActivityOrderEntity{
+			UserID:        "xiaofuge",
+			SKU:           9011,
+			ActivityID:    100301,
+			ActivityName:  "大营销抽奖",
+			StrategyID:    100006,
+			OrderID:       "order-001",
+			OrderTime:     now,
+			TotalCount:    100,
+			DayCount:      10,
+			MonthCount:    30,
+			PayAmount:     1.68,
+			State:         activity.ActivityOrderWaitPay,
+			OutBusinessNo: "biz-001",
+		},
+	})
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != types.ResponseCodeIndexDup {
+		t.Fatalf("expected duplicate code, got %s", appErr.Code.Code)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("expectations: %v", err)
