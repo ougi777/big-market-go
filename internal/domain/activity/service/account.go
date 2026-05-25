@@ -8,11 +8,11 @@ import (
 )
 
 type AccountService struct {
-	repo activity.Repository
+	repo activity.AccountRepository
 	now  func() time.Time
 }
 
-func NewAccountService(repo activity.Repository) *AccountService {
+func NewAccountService(repo activity.AccountRepository) *AccountService {
 	return &AccountService{
 		repo: repo,
 		now:  time.Now,

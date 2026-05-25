@@ -56,13 +56,15 @@ func main() {
 	queryService := strategyservice.NewQueryService(strategyRepository)
 	stockService := strategyservice.NewStockService(strategyRepository, strategyStore)
 	activityAccountService := activityservice.NewAccountService(activityRepository)
+	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
-		Logger:                 logger,
-		ArmoryService:          armoryService,
-		RaffleService:          raffleService,
-		QueryService:           queryService,
-		ActivityAccountService: activityAccountService,
+		Logger:                    logger,
+		ArmoryService:             armoryService,
+		RaffleService:             raffleService,
+		QueryService:              queryService,
+		ActivityAccountService:    activityAccountService,
+		ActivitySkuProductService: activitySkuProductService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),

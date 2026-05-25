@@ -26,3 +26,20 @@ type AccountMonthEntity struct {
 	MonthCount        int
 	MonthCountSurplus int
 }
+
+type SkuProductEntity struct {
+	SKU               int64
+	ActivityID        int64
+	ActivityCountID   int64
+	StockCount        int
+	StockCountSurplus int
+	ProductAmount     float64
+	ActivityCount     ActivityCountEntity
+}
+
+type ActivityCountEntity struct {
+	ActivityCountID int64
+	TotalCount      int
+	DayCount        int
+	MonthCount      int
+}
