@@ -93,6 +93,46 @@ func TestCreditRepositoryCompleteCreditPayOrderQuotaNotEnough(t *testing.T) {
 	}
 }
 
+func TestCreditRepositoryCompleteCreditPayOrder(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewCreditRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `user_credit_account` SET `available_amount`=available_amount + ?,`total_amount`=total_amount + ?,`update_time`=? WHERE user_id = ? and available_amount + ? >= 0")).
+		WithArgs(-1.68, -1.68, sqlmock.AnyArg(), "xiaofuge", -1.68).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `user_credit_order`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err := repo.CompleteCreditPayOrder(context.Background(), credit.CompleteSkuExchangeAggregate{
+		UserID: "xiaofuge",
+		CreditOrder: credit.OrderEntity{
+			UserID:        "xiaofuge",
+			OrderID:       "credit-001",
+			TradeName:     "兑换 SKU",
+			TradeType:     "reverse",
+			TradeAmount:   -1.68,
+			OutBusinessNo: "biz-001",
+		},
+		SendTask: credit.TaskEntity{
+			UserID:    "xiaofuge",
+			Topic:     credit.TopicCreditAdjustSuccess,
+			MessageID: "msg-001",
+			Message:   `{"outBusinessNo":"biz-001"}`,
+			State:     "create",
+		},
+	})
+	if err != nil {
+		t.Fatalf("complete credit pay order: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
 func TestCreditRepositorySaveRebateIntegralOrderCreatesAccount(t *testing.T) {
 	db, mock := newMockGormDB(t)
 	repo := NewCreditRepository(db)
