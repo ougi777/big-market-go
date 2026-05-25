@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"bm-go/internal/domain/activity"
@@ -43,14 +44,33 @@ func TestSkuProductServiceQuerySkuProductListByActivityID(t *testing.T) {
 	}
 }
 
+func TestSkuProductServiceQuerySkuProductListByActivityIDIllegalParam(t *testing.T) {
+	service := NewSkuProductService(&fakeSkuProductRepository{})
+
+	_, err := service.QuerySkuProductListByActivityID(context.Background(), 0)
+	if err == nil {
+		t.Fatal("expected illegal param error")
+	}
+}
+
+func TestSkuProductServiceQuerySkuProductListByActivityIDRepositoryError(t *testing.T) {
+	service := NewSkuProductService(&fakeSkuProductRepository{err: errors.New("query failed")})
+
+	_, err := service.QuerySkuProductListByActivityID(context.Background(), 100301)
+	if err == nil {
+		t.Fatal("expected repository error")
+	}
+}
+
 type fakeSkuProductRepository struct {
 	activityID int64
 	products   []activity.SkuProductEntity
+	err        error
 }
 
 func (f *fakeSkuProductRepository) QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]activity.SkuProductEntity, error) {
 	f.activityID = activityID
-	return f.products, nil
+	return f.products, f.err
 }
 
 func (f *fakeSkuProductRepository) QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error) {
