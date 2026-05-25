@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"bm-go/internal/domain/strategy"
 	"bm-go/internal/types"
@@ -16,6 +17,7 @@ type StrategyStore struct {
 }
 
 var _ strategy.RateTableStore = (*StrategyStore)(nil)
+var _ strategy.StockQueue = (*StrategyStore)(nil)
 
 func NewStrategyStore(client *goredis.Client) *StrategyStore {
 	return &StrategyStore{client: client}
@@ -47,4 +49,28 @@ func (s *StrategyStore) CacheStrategyAwardCount(ctx context.Context, key string,
 func (s *StrategyStore) AwardStockConsumeSendQueue(ctx context.Context, strategyID int64, awardID int) error {
 	value := fmt.Sprintf("%d:%d", strategyID, awardID)
 	return s.client.RPush(ctx, types.RedisKeyStrategyAwardCountQueue, value).Err()
+}
+
+func (s *StrategyStore) TakeQueueValue(ctx context.Context) (strategy.AwardStockKey, bool, error) {
+	value, err := s.client.LPop(ctx, types.RedisKeyStrategyAwardCountQueue).Result()
+	if err == goredis.Nil {
+		return strategy.AwardStockKey{}, false, nil
+	}
+	if err != nil {
+		return strategy.AwardStockKey{}, false, err
+	}
+
+	parts := strings.SplitN(value, ":", 2)
+	if len(parts) != 2 {
+		return strategy.AwardStockKey{}, false, fmt.Errorf("invalid award stock queue value: %s", value)
+	}
+	strategyID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return strategy.AwardStockKey{}, false, err
+	}
+	awardID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return strategy.AwardStockKey{}, false, err
+	}
+	return strategy.AwardStockKey{StrategyID: strategyID, AwardID: awardID}, true, nil
 }

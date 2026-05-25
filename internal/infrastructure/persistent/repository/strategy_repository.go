@@ -29,6 +29,7 @@ var _ strategy.Repository = (*StrategyRepository)(nil)
 var _ strategy.ArmoryRepository = (*StrategyRepository)(nil)
 var _ strategy.QueryRepository = (*StrategyRepository)(nil)
 var _ strategy.RaffleRepository = (*StrategyRepository)(nil)
+var _ strategy.StockRepository = (*StrategyRepository)(nil)
 var _ treepkg.Repository = (*StrategyRepository)(nil)
 
 func NewStrategyRepository(db *gorm.DB, stockQueues ...AwardStockQueue) *StrategyRepository {
@@ -339,6 +340,14 @@ func (r *StrategyRepository) AwardStockConsumeSendQueue(ctx context.Context, str
 		return r.stockQueue.AwardStockConsumeSendQueue(ctx, strategyID, awardID)
 	}
 	return nil
+}
+
+func (r *StrategyRepository) UpdateStrategyAwardStock(ctx context.Context, strategyID int64, awardID int) error {
+	return r.db.WithContext(ctx).
+		Model(&po.StrategyAward{}).
+		Where("strategy_id = ? and award_id = ? and award_count_surplus > 0", strategyID, awardID).
+		UpdateColumn("award_count_surplus", gorm.Expr("award_count_surplus - ?", 1)).
+		Error
 }
 
 func (r *StrategyRepository) queryActivityIDByStrategyID(ctx context.Context, strategyID int64) (int64, error) {

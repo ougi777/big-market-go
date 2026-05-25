@@ -104,3 +104,8 @@ type RuleWeightAward struct {
 	AwardID    int
 	AwardTitle string
 }
+
+type AwardStockKey struct {
+	StrategyID int64
+	AwardID    int
+}

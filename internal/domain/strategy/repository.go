@@ -41,3 +41,11 @@ type RaffleRepository interface {
 	QueryRuleTreeByTreeID(ctx context.Context, treeID string) (tree.RuleTree, bool, error)
 	QueryStrategyAwardEntity(ctx context.Context, strategyID int64, awardID int) (StrategyAwardEntity, bool, error)
 }
+
+type StockRepository interface {
+	UpdateStrategyAwardStock(ctx context.Context, strategyID int64, awardID int) error
+}
+
+type StockQueue interface {
+	TakeQueueValue(ctx context.Context) (AwardStockKey, bool, error)
+}

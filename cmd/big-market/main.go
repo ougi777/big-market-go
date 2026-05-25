@@ -17,6 +17,7 @@ import (
 	"bm-go/internal/infrastructure/persistent/repository"
 	infrredis "bm-go/internal/infrastructure/redis"
 	triggerhttp "bm-go/internal/trigger/http"
+	triggerjob "bm-go/internal/trigger/job"
 
 	"go.uber.org/zap"
 )
@@ -51,6 +52,7 @@ func main() {
 	armoryService := strategyservice.NewArmoryService(strategyRepository, strategyStore)
 	raffleService := strategyservice.NewRaffleService(chainFactory, strategyRepository, treeNodes)
 	queryService := strategyservice.NewQueryService(strategyRepository)
+	stockService := strategyservice.NewStockService(strategyRepository, strategyStore)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
 		Logger:        logger,
@@ -64,6 +66,13 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	scheduler := triggerjob.NewScheduler()
+	updateAwardStockJob := triggerjob.NewUpdateAwardStockJob(stockService, logger)
+	if _, err := scheduler.Add("*/5 * * * * *", updateAwardStockJob.Exec); err != nil {
+		logger.Fatal("register update award stock job failed", zap.Error(err))
+	}
+	scheduler.Start()
+
 	go func() {
 		logger.Info("big-market go service started", zap.String("addr", cfg.HTTPAddr()))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -74,6 +83,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	scheduler.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
