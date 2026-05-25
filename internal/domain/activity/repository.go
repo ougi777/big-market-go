@@ -8,6 +8,10 @@ type AccountRepository interface {
 	QueryActivityAccountMonth(ctx context.Context, activityID int64, userID string, month string) (AccountMonthEntity, bool, error)
 }
 
+type CreditAccountRepository interface {
+	QueryUserCreditAccount(ctx context.Context, userID string) (CreditAccountEntity, bool, error)
+}
+
 type SkuProductRepository interface {
 	QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]SkuProductEntity, error)
 	QuerySkuProductBySKU(ctx context.Context, sku int64) (SkuProductEntity, bool, error)
@@ -46,6 +50,7 @@ type PartakeRepository interface {
 
 type Repository interface {
 	AccountRepository
+	CreditAccountRepository
 	SkuProductRepository
 	SkuExchangeRepository
 	PartakeRepository

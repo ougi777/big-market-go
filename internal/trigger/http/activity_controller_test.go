@@ -154,6 +154,23 @@ func TestCreditPayExchangeSkuRoute(t *testing.T) {
 	}
 }
 
+func TestQueryUserCreditAccountRoute(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityCreditService: &fakeActivityCreditService{amount: 12.35},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/query_user_credit_account?userId=xiaofuge", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"data":12.35`) {
+		t.Fatalf("expected credit amount, got %s", recorder.Body.String())
+	}
+}
+
 type fakeActivityAccountService struct {
 	account activity.AccountEntity
 }
@@ -206,4 +223,12 @@ func (f *fakeActivityExchangeService) CreditPayExchangeSku(ctx context.Context, 
 	f.userID = userID
 	f.sku = sku
 	return f.result, nil
+}
+
+type fakeActivityCreditService struct {
+	amount float64
+}
+
+func (f *fakeActivityCreditService) QueryUserCreditAccount(ctx context.Context, userID string) (float64, error) {
+	return f.amount, nil
 }

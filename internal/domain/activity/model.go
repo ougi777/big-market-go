@@ -59,6 +59,11 @@ type SkuProductEntity struct {
 	ActivityCount     ActivityCountEntity
 }
 
+type CreditAccountEntity struct {
+	UserID          string
+	AvailableAmount float64
+}
+
 type ActivityOrderEntity struct {
 	UserID        string
 	SKU           int64

@@ -18,6 +18,7 @@ type ActivityRepository struct {
 
 var _ activity.Repository = (*ActivityRepository)(nil)
 var _ activity.AccountRepository = (*ActivityRepository)(nil)
+var _ activity.CreditAccountRepository = (*ActivityRepository)(nil)
 var _ activity.SkuProductRepository = (*ActivityRepository)(nil)
 var _ activity.SkuStockRepository = (*ActivityRepository)(nil)
 var _ activity.PartakeRepository = (*ActivityRepository)(nil)
@@ -120,6 +121,25 @@ func (r *ActivityRepository) QueryActivityAccountMonth(ctx context.Context, acti
 		Month:             monthPO.Month,
 		MonthCount:        monthPO.MonthCount,
 		MonthCountSurplus: monthPO.MonthCountSurplus,
+	}, true, nil
+}
+
+func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID string) (activity.CreditAccountEntity, bool, error) {
+	var accountPO po.UserCreditAccount
+	err := r.db.WithContext(ctx).
+		Select("user_id", "available_amount").
+		Where("user_id = ?", userID).
+		First(&accountPO).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return activity.CreditAccountEntity{}, false, nil
+	}
+	if err != nil {
+		return activity.CreditAccountEntity{}, false, err
+	}
+	return activity.CreditAccountEntity{
+		UserID:          accountPO.UserID,
+		AvailableAmount: accountPO.AvailableAmount,
 	}, true, nil
 }
 

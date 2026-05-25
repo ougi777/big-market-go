@@ -67,6 +67,7 @@ func main() {
 	stockService := strategyservice.NewStockService(strategyRepository, strategyStore)
 	activityAccountService := activityservice.NewAccountService(activityRepository)
 	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
+	activityCreditService := activityservice.NewCreditService(activityRepository)
 	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
 	activityPartakeService := activityservice.NewPartakeService(activityRepository)
 	activityStockService := activityservice.NewStockService(activityRepository, activityStore, activityStore, rabbitmqClient)
@@ -86,6 +87,7 @@ func main() {
 		ActivityStrategyArmoryService: armoryService,
 		ActivityDrawService:           activityDrawService,
 		ActivityExchangeService:       activityExchangeService,
+		ActivityCreditService:         activityCreditService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),
