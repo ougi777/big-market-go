@@ -1,6 +1,10 @@
 package activity
 
-import "time"
+import (
+	"time"
+
+	"bm-go/internal/domain/credit"
+)
 
 const (
 	ActivityStateOpen         = "open"
@@ -60,10 +64,7 @@ type SkuProductEntity struct {
 	ActivityCount     ActivityCountEntity
 }
 
-type CreditAccountEntity struct {
-	UserID          string
-	AvailableAmount float64
-}
+type CreditAccountEntity = credit.AccountEntity
 
 type ActivityOrderEntity struct {
 	UserID        string
@@ -81,14 +82,7 @@ type ActivityOrderEntity struct {
 	OutBusinessNo string
 }
 
-type CreditOrderEntity struct {
-	UserID        string
-	OrderID       string
-	TradeName     string
-	TradeType     string
-	TradeAmount   float64
-	OutBusinessNo string
-}
+type CreditOrderEntity = credit.OrderEntity
 
 type SkuExchangeOrderEntity struct {
 	UserID        string
@@ -128,12 +122,7 @@ type CreateRebateSkuOrderAggregate struct {
 	ActivityOrder ActivityOrderEntity
 }
 
-type RebateIntegralEntity struct {
-	UserID        string
-	OrderID       string
-	TradeAmount   float64
-	OutBusinessNo string
-}
+type RebateIntegralEntity = credit.RebateIntegralEntity
 
 type DeliveryOrderEntity struct {
 	UserID        string

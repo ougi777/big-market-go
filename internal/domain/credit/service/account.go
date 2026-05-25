@@ -4,19 +4,19 @@ import (
 	"context"
 	"strings"
 
-	"bm-go/internal/domain/activity"
+	"bm-go/internal/domain/credit"
 	"bm-go/internal/types"
 )
 
-type CreditService struct {
-	repo activity.CreditAccountRepository
+type AccountService struct {
+	repo credit.AccountRepository
 }
 
-func NewCreditService(repo activity.CreditAccountRepository) *CreditService {
-	return &CreditService{repo: repo}
+func NewAccountService(repo credit.AccountRepository) *AccountService {
+	return &AccountService{repo: repo}
 }
 
-func (s *CreditService) QueryUserCreditAccount(ctx context.Context, userID string) (float64, error) {
+func (s *AccountService) QueryUserCreditAccount(ctx context.Context, userID string) (float64, error) {
 	if strings.TrimSpace(userID) == "" {
 		return 0, types.NewAppError(types.ResponseCodeIllegalParam, nil)
 	}

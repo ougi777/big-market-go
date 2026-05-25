@@ -4,18 +4,18 @@ import (
 	"context"
 	"testing"
 
-	"bm-go/internal/domain/activity"
+	"bm-go/internal/domain/credit"
 )
 
-func TestCreditServiceQueryUserCreditAccount(t *testing.T) {
+func TestAccountServiceQueryUserCreditAccount(t *testing.T) {
 	repo := &fakeCreditAccountRepository{
-		account: activity.CreditAccountEntity{
+		account: credit.AccountEntity{
 			UserID:          "xiaofuge",
 			AvailableAmount: 12.35,
 		},
 		exists: true,
 	}
-	service := NewCreditService(repo)
+	service := NewAccountService(repo)
 
 	amount, err := service.QueryUserCreditAccount(context.Background(), "xiaofuge")
 	if err != nil {
@@ -27,10 +27,10 @@ func TestCreditServiceQueryUserCreditAccount(t *testing.T) {
 }
 
 type fakeCreditAccountRepository struct {
-	account activity.CreditAccountEntity
+	account credit.AccountEntity
 	exists  bool
 }
 
-func (f *fakeCreditAccountRepository) QueryUserCreditAccount(ctx context.Context, userID string) (activity.CreditAccountEntity, bool, error) {
+func (f *fakeCreditAccountRepository) QueryUserCreditAccount(ctx context.Context, userID string) (credit.AccountEntity, bool, error) {
 	return f.account, f.exists, nil
 }

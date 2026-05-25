@@ -12,6 +12,7 @@ import (
 	"bm-go/internal/config"
 	activityservice "bm-go/internal/domain/activity/service"
 	awardservice "bm-go/internal/domain/award/service"
+	creditservice "bm-go/internal/domain/credit/service"
 	rebateservice "bm-go/internal/domain/rebate/service"
 	"bm-go/internal/domain/strategy/rule/chain"
 	"bm-go/internal/domain/strategy/rule/tree"
@@ -72,7 +73,7 @@ func main() {
 	stockService := strategyservice.NewStockService(strategyRepository, strategyStore)
 	activityAccountService := activityservice.NewAccountService(activityRepository)
 	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
-	activityCreditService := activityservice.NewCreditService(activityRepository)
+	activityCreditService := creditservice.NewAccountService(activityRepository)
 	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
 	activityPartakeService := activityservice.NewPartakeService(activityRepository)
 	activityStockService := activityservice.NewStockService(activityRepository, activityStore, activityStore, rabbitmqClient)

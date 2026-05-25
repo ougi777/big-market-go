@@ -2,15 +2,15 @@ package activity
 
 import "context"
 
+import creditdomain "bm-go/internal/domain/credit"
+
 type AccountRepository interface {
 	QueryActivityAccount(ctx context.Context, activityID int64, userID string) (AccountEntity, bool, error)
 	QueryActivityAccountDay(ctx context.Context, activityID int64, userID string, day string) (AccountDayEntity, bool, error)
 	QueryActivityAccountMonth(ctx context.Context, activityID int64, userID string, month string) (AccountMonthEntity, bool, error)
 }
 
-type CreditAccountRepository interface {
-	QueryUserCreditAccount(ctx context.Context, userID string) (CreditAccountEntity, bool, error)
-}
+type CreditAccountRepository = creditdomain.AccountRepository
 
 type SkuProductRepository interface {
 	QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]SkuProductEntity, error)

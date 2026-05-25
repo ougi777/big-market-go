@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/domain/credit"
 	"bm-go/internal/infrastructure/persistent/po"
 	"bm-go/internal/infrastructure/persistent/sharding"
 	"bm-go/internal/types"
@@ -21,6 +22,7 @@ type ActivityRepository struct {
 var _ activity.Repository = (*ActivityRepository)(nil)
 var _ activity.AccountRepository = (*ActivityRepository)(nil)
 var _ activity.CreditAccountRepository = (*ActivityRepository)(nil)
+var _ credit.AccountRepository = (*ActivityRepository)(nil)
 var _ activity.SkuProductRepository = (*ActivityRepository)(nil)
 var _ activity.SkuStockRepository = (*ActivityRepository)(nil)
 var _ activity.PartakeRepository = (*ActivityRepository)(nil)
@@ -144,7 +146,7 @@ func (r *ActivityRepository) QueryActivityAccountMonth(ctx context.Context, acti
 	}, true, nil
 }
 
-func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID string) (activity.CreditAccountEntity, bool, error) {
+func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID string) (credit.AccountEntity, bool, error) {
 	var accountPO po.UserCreditAccount
 	err := r.shardDB(ctx, userID).
 		Select("user_id", "available_amount").
@@ -152,12 +154,12 @@ func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID 
 		First(&accountPO).
 		Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return activity.CreditAccountEntity{}, false, nil
+		return credit.AccountEntity{}, false, nil
 	}
 	if err != nil {
-		return activity.CreditAccountEntity{}, false, err
+		return credit.AccountEntity{}, false, err
 	}
-	return activity.CreditAccountEntity{
+	return credit.AccountEntity{
 		UserID:          accountPO.UserID,
 		AvailableAmount: accountPO.AvailableAmount,
 	}, true, nil
@@ -600,7 +602,7 @@ func saveOrSubtractDayAccount(tx *gorm.DB, aggregate activity.CreatePartakeOrder
 	return setAccountDayMirror(tx, aggregate.UserID, aggregate.ActivityID, dayPO.DayCountSurplus)
 }
 
-func adjustUserCreditAccount(tx *gorm.DB, creditOrder activity.CreditOrderEntity) error {
+func adjustUserCreditAccount(tx *gorm.DB, creditOrder credit.OrderEntity) error {
 	now := time.Now()
 	result := tx.Model(&po.UserCreditAccount{}).
 		Where("user_id = ? and available_amount + ? >= 0", creditOrder.UserID, creditOrder.TradeAmount).
@@ -618,7 +620,7 @@ func adjustUserCreditAccount(tx *gorm.DB, creditOrder activity.CreditOrderEntity
 	return nil
 }
 
-func adjustOrCreateUserCreditAccount(tx *gorm.DB, creditOrder activity.CreditOrderEntity, now time.Time) error {
+func adjustOrCreateUserCreditAccount(tx *gorm.DB, creditOrder credit.OrderEntity, now time.Time) error {
 	result := tx.Model(&po.UserCreditAccount{}).
 		Where("user_id = ? and available_amount + ? >= 0", creditOrder.UserID, creditOrder.TradeAmount).
 		Updates(map[string]any{
