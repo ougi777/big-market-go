@@ -87,6 +87,7 @@ POST /api/v1/raffle/activity/credit_pay_exchange_sku
 
 ```yaml
 sharding:
+  db_count: 1
   table_count: 1
 ```
 
@@ -94,6 +95,7 @@ sharding:
 
 ```yaml
 sharding:
+  db_count: 2
   table_count: 4
 ```
 

@@ -7,6 +7,7 @@ mysql:
   max_open_conns: 50
 
 sharding:
+  db_count: 1
   table_count: 1
 
 redis:

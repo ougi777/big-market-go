@@ -28,6 +28,7 @@ type MySQLConfig struct {
 }
 
 type ShardingConfig struct {
+	DBCount    int `mapstructure:"db_count"`
 	TableCount int `mapstructure:"table_count"`
 }
 
@@ -77,6 +78,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.port", 8091)
 	v.SetDefault("mysql.max_idle_conns", 10)
 	v.SetDefault("mysql.max_open_conns", 50)
+	v.SetDefault("sharding.db_count", 1)
 	v.SetDefault("sharding.table_count", 1)
 	v.SetDefault("redis.addr", "localhost:16379")
 	v.SetDefault("rabbitmq.url", "amqp://admin:admin@localhost:5672/")

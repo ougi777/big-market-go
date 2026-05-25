@@ -73,6 +73,7 @@ GET /health
 
 ```yaml
 sharding:
+  db_count: 2
   table_count: 4
 ```
 

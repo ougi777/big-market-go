@@ -53,7 +53,7 @@ func main() {
 
 	strategyStore := infrredis.NewStrategyStore(redisClient)
 	activityStore := infrredis.NewActivityStore(redisClient)
-	tableRouter := sharding.NewRouter(cfg.Sharding.TableCount)
+	tableRouter := sharding.NewRouterWithDBCount(cfg.Sharding.DBCount, cfg.Sharding.TableCount)
 	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
 	activityRepository := repository.NewActivityRepository(db, tableRouter)
 	awardRepository := repository.NewAwardRepository(db, tableRouter)
