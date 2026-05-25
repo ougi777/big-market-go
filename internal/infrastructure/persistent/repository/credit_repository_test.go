@@ -92,3 +92,31 @@ func TestCreditRepositoryCompleteCreditPayOrderQuotaNotEnough(t *testing.T) {
 		t.Fatalf("expectations: %v", err)
 	}
 }
+
+func TestCreditRepositorySaveRebateIntegralOrderCreatesAccount(t *testing.T) {
+	db, mock := newMockGormDB(t)
+	repo := NewCreditRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE `user_credit_account` SET `available_amount`=available_amount + ?,`total_amount`=total_amount + ?,`update_time`=? WHERE user_id = ? and available_amount + ? >= 0")).
+		WithArgs(10.0, 10.0, sqlmock.AnyArg(), "xiaofuge", 10.0).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `user_credit_account`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `user_credit_order`")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	err := repo.SaveRebateIntegralOrder(context.Background(), credit.RebateIntegralEntity{
+		UserID:        "xiaofuge",
+		OrderID:       "rebate-001",
+		TradeAmount:   10,
+		OutBusinessNo: "sign-20260525",
+	})
+	if err != nil {
+		t.Fatalf("save rebate integral order: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
