@@ -1,0 +1,18 @@
+server:
+  port: 8091
+
+mysql:
+  dsn: root:123456@tcp(localhost:13308)/big_market?charset=utf8mb4&parseTime=True&loc=Local
+  max_idle_conns: 10
+  max_open_conns: 50
+
+redis:
+  addr: localhost:16379
+  password: ""
+  db: 0
+
+rabbitmq:
+  url: amqp://admin:admin@localhost:5672/
+
+log:
+  level: info

@@ -1,0 +1,19 @@
+# Build outputs
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Local config and env
+.env
+*.local.yaml
+*.local.yml
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+/logs/
+*.log
