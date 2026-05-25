@@ -15,6 +15,22 @@ func TestActivityStoreSubtractActivitySkuStockWithoutClient(t *testing.T) {
 	}
 }
 
+func TestParseActivitySkuStockQueueValue(t *testing.T) {
+	key, err := parseActivitySkuStockQueueValue(`{"sku":9011,"activityId":100301}`)
+	if err != nil {
+		t.Fatalf("expected parse success, got %v", err)
+	}
+	if key.SKU != 9011 || key.ActivityID != 100301 {
+		t.Fatalf("unexpected key: %+v", key)
+	}
+}
+
+func TestParseActivitySkuStockQueueValueInvalid(t *testing.T) {
+	if _, err := parseActivitySkuStockQueueValue(`{"sku":`); err == nil {
+		t.Fatalf("expected parse error")
+	}
+}
+
 func TestActivityStoreClearActivitySkuStockQueueWithoutClient(t *testing.T) {
 	store := NewActivityStore(nil)
 

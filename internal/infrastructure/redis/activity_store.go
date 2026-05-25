@@ -75,12 +75,19 @@ func (s *ActivityStore) TakeActivitySkuStock(ctx context.Context) (activity.Acti
 	if err != nil {
 		return activity.ActivitySkuStockKey{}, false, err
 	}
-
-	var key activity.ActivitySkuStockKey
-	if err := json.Unmarshal([]byte(value), &key); err != nil {
+	key, err := parseActivitySkuStockQueueValue(value)
+	if err != nil {
 		return activity.ActivitySkuStockKey{}, false, err
 	}
 	return key, true, nil
+}
+
+func parseActivitySkuStockQueueValue(value string) (activity.ActivitySkuStockKey, error) {
+	var key activity.ActivitySkuStockKey
+	if err := json.Unmarshal([]byte(value), &key); err != nil {
+		return activity.ActivitySkuStockKey{}, err
+	}
+	return key, nil
 }
 
 func (s *ActivityStore) ClearActivitySkuStockQueue(ctx context.Context) error {

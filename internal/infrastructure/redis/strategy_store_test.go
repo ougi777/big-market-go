@@ -15,6 +15,26 @@ func TestStrategyStoreTakeQueueValueWithoutClient(t *testing.T) {
 	}
 }
 
+func TestParseAwardStockQueueValue(t *testing.T) {
+	key, err := parseAwardStockQueueValue("100001:101")
+	if err != nil {
+		t.Fatalf("expected parse success, got %v", err)
+	}
+	if key.StrategyID != 100001 || key.AwardID != 101 {
+		t.Fatalf("unexpected key: %+v", key)
+	}
+}
+
+func TestParseAwardStockQueueValueInvalid(t *testing.T) {
+	cases := []string{"100001", "abc:101", "100001:abc"}
+
+	for _, value := range cases {
+		if _, err := parseAwardStockQueueValue(value); err == nil {
+			t.Fatalf("expected parse error for %q", value)
+		}
+	}
+}
+
 func TestStrategyStoreAwardStockConsumeSendQueueWithoutClient(t *testing.T) {
 	store := NewStrategyStore(nil)
 

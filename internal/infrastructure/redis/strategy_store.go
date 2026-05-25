@@ -82,18 +82,25 @@ func (s *StrategyStore) TakeQueueValue(ctx context.Context) (strategy.AwardStock
 	if err != nil {
 		return strategy.AwardStockKey{}, false, err
 	}
+	key, err := parseAwardStockQueueValue(value)
+	if err != nil {
+		return strategy.AwardStockKey{}, false, err
+	}
+	return key, true, nil
+}
 
+func parseAwardStockQueueValue(value string) (strategy.AwardStockKey, error) {
 	parts := strings.SplitN(value, ":", 2)
 	if len(parts) != 2 {
-		return strategy.AwardStockKey{}, false, fmt.Errorf("invalid award stock queue value: %s", value)
+		return strategy.AwardStockKey{}, fmt.Errorf("invalid award stock queue value: %s", value)
 	}
 	strategyID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return strategy.AwardStockKey{}, false, err
+		return strategy.AwardStockKey{}, err
 	}
 	awardID, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return strategy.AwardStockKey{}, false, err
+		return strategy.AwardStockKey{}, err
 	}
-	return strategy.AwardStockKey{StrategyID: strategyID, AwardID: awardID}, true, nil
+	return strategy.AwardStockKey{StrategyID: strategyID, AwardID: awardID}, nil
 }
