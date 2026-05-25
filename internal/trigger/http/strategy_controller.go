@@ -107,8 +107,7 @@ func (c *raffleStrategyController) strategyArmory(ctx *gin.Context) {
 	}
 
 	if err := c.armoryService.AssembleLotteryStrategy(ctx.Request.Context(), request.StrategyID); err != nil {
-		if code, ok := appErrorCode(err); ok {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(code, false))
+		if writeAppErrorFailure(ctx, err, false) {
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
@@ -127,8 +126,7 @@ func (c *raffleStrategyController) randomRaffle(ctx *gin.Context) {
 
 	result, err := c.raffleService.PerformRaffle(ctx.Request.Context(), "system", request.StrategyID)
 	if err != nil {
-		if code, ok := appErrorCode(err); ok {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(code, raffleStrategyResponse{}))
+		if writeAppErrorFailure(ctx, err, raffleStrategyResponse{}) {
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, raffleStrategyResponse{}))
@@ -150,8 +148,7 @@ func (c *raffleStrategyController) queryRaffleAwardList(ctx *gin.Context) {
 
 	awards, err := c.queryService.QueryRaffleAwardList(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
-		if code, ok := appErrorCode(err); ok {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(code, []raffleAwardListResponse{}))
+		if writeAppErrorFailure(ctx, err, []raffleAwardListResponse{}) {
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []raffleAwardListResponse{}))
@@ -189,8 +186,7 @@ func (c *raffleStrategyController) queryRaffleStrategyRuleWeight(ctx *gin.Contex
 
 	ruleWeights, err := c.queryService.QueryRaffleStrategyRuleWeight(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
-		if code, ok := appErrorCode(err); ok {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(code, []raffleStrategyRuleWeightResponse{}))
+		if writeAppErrorFailure(ctx, err, []raffleStrategyRuleWeightResponse{}) {
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []raffleStrategyRuleWeightResponse{}))
