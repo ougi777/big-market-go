@@ -21,10 +21,6 @@ type ActivityRepository struct {
 
 var _ activity.Repository = (*ActivityRepository)(nil)
 var _ activity.AccountRepository = (*ActivityRepository)(nil)
-var _ activity.CreditAccountRepository = (*ActivityRepository)(nil)
-var _ activity.CreditTradeRepository = (*ActivityRepository)(nil)
-var _ credit.AccountRepository = (*ActivityRepository)(nil)
-var _ credit.TradeRepository = (*ActivityRepository)(nil)
 var _ activity.SkuProductRepository = (*ActivityRepository)(nil)
 var _ activity.SkuStockRepository = (*ActivityRepository)(nil)
 var _ activity.PartakeRepository = (*ActivityRepository)(nil)
@@ -145,25 +141,6 @@ func (r *ActivityRepository) QueryActivityAccountMonth(ctx context.Context, acti
 		Month:             monthPO.Month,
 		MonthCount:        monthPO.MonthCount,
 		MonthCountSurplus: monthPO.MonthCountSurplus,
-	}, true, nil
-}
-
-func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID string) (credit.AccountEntity, bool, error) {
-	var accountPO po.UserCreditAccount
-	err := r.shardDB(ctx, userID).
-		Select("user_id", "available_amount").
-		Where("user_id = ?", userID).
-		First(&accountPO).
-		Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return credit.AccountEntity{}, false, nil
-	}
-	if err != nil {
-		return credit.AccountEntity{}, false, err
-	}
-	return credit.AccountEntity{
-		UserID:          accountPO.UserID,
-		AvailableAmount: accountPO.AvailableAmount,
 	}, true, nil
 }
 
@@ -326,42 +303,6 @@ func (r *ActivityRepository) SaveCreditPayOrder(ctx context.Context, aggregate a
 	return nil
 }
 
-func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggregate credit.CompleteSkuExchangeAggregate) error {
-	now := time.Now()
-	return r.shardDB(ctx, aggregate.UserID).Transaction(func(tx *gorm.DB) error {
-		if err := adjustUserCreditAccount(tx, aggregate.CreditOrder); err != nil {
-			return err
-		}
-		if err := tx.Table(r.sharder.Table("user_credit_order", aggregate.UserID)).Create(&po.UserCreditOrder{
-			UserID:        aggregate.CreditOrder.UserID,
-			OrderID:       aggregate.CreditOrder.OrderID,
-			TradeName:     aggregate.CreditOrder.TradeName,
-			TradeType:     aggregate.CreditOrder.TradeType,
-			TradeAmount:   aggregate.CreditOrder.TradeAmount,
-			OutBusinessNo: aggregate.CreditOrder.OutBusinessNo,
-			CreateTime:    now,
-			UpdateTime:    now,
-		}).Error; err != nil {
-			return types.NewAppError(types.ResponseCodeIndexDup, err)
-		}
-		if aggregate.SendTask.MessageID != "" {
-			if err := tx.Create(&po.Task{
-				UserID:     aggregate.SendTask.UserID,
-				Topic:      aggregate.SendTask.Topic,
-				MessageID:  aggregate.SendTask.MessageID,
-				Message:    aggregate.SendTask.Message,
-				State:      aggregate.SendTask.State,
-				CreateTime: now,
-				UpdateTime: now,
-			}).Error; err != nil {
-				return types.NewAppError(types.ResponseCodeIndexDup, err)
-			}
-		}
-
-		return nil
-	})
-}
-
 func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate activity.CreateRebateSkuOrderAggregate) error {
 	now := time.Now()
 	order := aggregate.ActivityOrder
@@ -394,36 +335,6 @@ func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate a
 			MonthCount:    order.MonthCount,
 			OutBusinessNo: order.OutBusinessNo,
 		}, now)
-	})
-}
-
-func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral credit.RebateIntegralEntity) error {
-	now := time.Now()
-	return r.shardDB(ctx, rebateIntegral.UserID).Transaction(func(tx *gorm.DB) error {
-		creditOrder := credit.OrderEntity{
-			UserID:        rebateIntegral.UserID,
-			OrderID:       rebateIntegral.OrderID,
-			TradeName:     "REBATE",
-			TradeType:     "forward",
-			TradeAmount:   rebateIntegral.TradeAmount,
-			OutBusinessNo: rebateIntegral.OutBusinessNo,
-		}
-		if err := adjustOrCreateUserCreditAccount(tx, creditOrder, now); err != nil {
-			return err
-		}
-		if err := tx.Table(r.sharder.Table("user_credit_order", rebateIntegral.UserID)).Create(&po.UserCreditOrder{
-			UserID:        creditOrder.UserID,
-			OrderID:       creditOrder.OrderID,
-			TradeName:     creditOrder.TradeName,
-			TradeType:     creditOrder.TradeType,
-			TradeAmount:   creditOrder.TradeAmount,
-			OutBusinessNo: creditOrder.OutBusinessNo,
-			CreateTime:    now,
-			UpdateTime:    now,
-		}).Error; err != nil {
-			return types.NewAppError(types.ResponseCodeIndexDup, err)
-		}
-		return nil
 	})
 }
 
@@ -602,53 +513,6 @@ func saveOrSubtractDayAccount(tx *gorm.DB, aggregate activity.CreatePartakeOrder
 		return types.NewAppError(types.ResponseCodeIndexDup, err)
 	}
 	return setAccountDayMirror(tx, aggregate.UserID, aggregate.ActivityID, dayPO.DayCountSurplus)
-}
-
-func adjustUserCreditAccount(tx *gorm.DB, creditOrder credit.OrderEntity) error {
-	now := time.Now()
-	result := tx.Model(&po.UserCreditAccount{}).
-		Where("user_id = ? and available_amount + ? >= 0", creditOrder.UserID, creditOrder.TradeAmount).
-		Updates(map[string]any{
-			"total_amount":     gorm.Expr("total_amount + ?", creditOrder.TradeAmount),
-			"available_amount": gorm.Expr("available_amount + ?", creditOrder.TradeAmount),
-			"update_time":      now,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		return types.NewAppError(types.ResponseCodeAccountQuotaError, nil)
-	}
-	return nil
-}
-
-func adjustOrCreateUserCreditAccount(tx *gorm.DB, creditOrder credit.OrderEntity, now time.Time) error {
-	result := tx.Model(&po.UserCreditAccount{}).
-		Where("user_id = ? and available_amount + ? >= 0", creditOrder.UserID, creditOrder.TradeAmount).
-		Updates(map[string]any{
-			"total_amount":     gorm.Expr("total_amount + ?", creditOrder.TradeAmount),
-			"available_amount": gorm.Expr("available_amount + ?", creditOrder.TradeAmount),
-			"update_time":      now,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		if creditOrder.TradeAmount < 0 {
-			return types.NewAppError(types.ResponseCodeAccountQuotaError, nil)
-		}
-		if err := tx.Create(&po.UserCreditAccount{
-			UserID:          creditOrder.UserID,
-			TotalAmount:     creditOrder.TradeAmount,
-			AvailableAmount: creditOrder.TradeAmount,
-			AccountStatus:   "open",
-			CreateTime:      now,
-			UpdateTime:      now,
-		}).Error; err != nil {
-			return types.NewAppError(types.ResponseCodeIndexDup, err)
-		}
-	}
-	return nil
 }
 
 func addActivityAccountQuota(tx *gorm.DB, aggregate credit.CompleteSkuExchangeAggregate, now time.Time) error {

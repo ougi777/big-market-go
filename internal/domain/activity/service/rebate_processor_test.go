@@ -30,7 +30,7 @@ func TestRebateProcessorProcessSKU(t *testing.T) {
 		},
 		activityExists: true,
 	}
-	processor := NewRebateProcessor(repo)
+	processor := NewRebateProcessor(repo, repo)
 	processor.now = func() time.Time { return now }
 	processor.orderIDGenerator = func() (string, error) { return "123456789012", nil }
 
@@ -60,7 +60,7 @@ func TestRebateProcessorProcessSKU(t *testing.T) {
 
 func TestRebateProcessorProcessIntegral(t *testing.T) {
 	repo := &fakeRebateProcessRepository{}
-	processor := NewRebateProcessor(repo)
+	processor := NewRebateProcessor(repo, repo)
 	processor.orderIDGenerator = func() (string, error) { return "123456789012", nil }
 
 	err := processor.ProcessRebate(context.Background(), rebate.SendRebateMessage{

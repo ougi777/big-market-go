@@ -40,14 +40,12 @@ type SkuExchangeRepository interface {
 	SaveCreditPayOrder(ctx context.Context, aggregate CreateSkuExchangeOrderAggregate) error
 	UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error
 	UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error
-	CreditTradeRepository
 }
 
 type RebateRepository interface {
 	QuerySkuProductBySKU(ctx context.Context, sku int64) (SkuProductEntity, bool, error)
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (ActivityEntity, bool, error)
 	SaveRebateSkuOrder(ctx context.Context, aggregate CreateRebateSkuOrderAggregate) error
-	CreditTradeRepository
 }
 
 type DeliveryRepository interface {
@@ -65,8 +63,6 @@ type PartakeRepository interface {
 
 type Repository interface {
 	AccountRepository
-	CreditAccountRepository
-	CreditTradeRepository
 	SkuProductRepository
 	SkuExchangeRepository
 	PartakeRepository

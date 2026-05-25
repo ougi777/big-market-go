@@ -16,9 +16,12 @@ type exchangeRepository interface {
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (activity.ActivityEntity, bool, error)
 	QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (activity.SkuExchangeOrderEntity, bool, error)
 	SaveCreditPayOrder(ctx context.Context, aggregate activity.CreateSkuExchangeOrderAggregate) error
-	CompleteCreditPayOrder(ctx context.Context, aggregate credit.CompleteSkuExchangeAggregate) error
 	UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error
 	UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error
+}
+
+type creditTradeRepository interface {
+	CompleteCreditPayOrder(ctx context.Context, aggregate credit.CompleteSkuExchangeAggregate) error
 }
 
 type exchangeStockService interface {
@@ -27,6 +30,7 @@ type exchangeStockService interface {
 
 type ExchangeService struct {
 	repo                 exchangeRepository
+	creditRepo           creditTradeRepository
 	stockService         exchangeStockService
 	publisher            credit.MessagePublisher
 	now                  func() time.Time
@@ -36,9 +40,17 @@ type ExchangeService struct {
 	creditOrderGenerator func() (string, error)
 }
 
-func NewExchangeService(repo exchangeRepository, stockService exchangeStockService, publisher credit.MessagePublisher) *ExchangeService {
+func NewExchangeService(repo exchangeRepository, stockService exchangeStockService, publisher credit.MessagePublisher, creditRepos ...creditTradeRepository) *ExchangeService {
+	var creditRepo creditTradeRepository
+	if len(creditRepos) > 0 {
+		creditRepo = creditRepos[0]
+	}
+	if creditRepo == nil {
+		panic("credit trade repository is required")
+	}
 	return &ExchangeService{
 		repo:                 repo,
+		creditRepo:           creditRepo,
 		stockService:         stockService,
 		publisher:            publisher,
 		now:                  time.Now,
@@ -159,7 +171,7 @@ func (s *ExchangeService) payCreditOrder(ctx context.Context, order activity.Sku
 	if err != nil {
 		return false, err
 	}
-	err = s.repo.CompleteCreditPayOrder(ctx, credit.CompleteSkuExchangeAggregate{
+	err = s.creditRepo.CompleteCreditPayOrder(ctx, credit.CompleteSkuExchangeAggregate{
 		UserID:        order.UserID,
 		OutBusinessNo: order.OutBusinessNo,
 		CreditOrder: credit.OrderEntity{

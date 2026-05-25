@@ -16,18 +16,30 @@ type rebateRepository interface {
 	QuerySkuProductBySKU(ctx context.Context, sku int64) (activity.SkuProductEntity, bool, error)
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (activity.ActivityEntity, bool, error)
 	SaveRebateSkuOrder(ctx context.Context, aggregate activity.CreateRebateSkuOrderAggregate) error
+}
+
+type rebateCreditRepository interface {
 	SaveRebateIntegralOrder(ctx context.Context, rebateIntegral credit.RebateIntegralEntity) error
 }
 
 type RebateProcessor struct {
 	repo             rebateRepository
+	creditRepo       rebateCreditRepository
 	now              func() time.Time
 	orderIDGenerator func() (string, error)
 }
 
-func NewRebateProcessor(repo rebateRepository) *RebateProcessor {
+func NewRebateProcessor(repo rebateRepository, creditRepos ...rebateCreditRepository) *RebateProcessor {
+	var creditRepo rebateCreditRepository
+	if len(creditRepos) > 0 {
+		creditRepo = creditRepos[0]
+	}
+	if creditRepo == nil {
+		panic("rebate credit repository is required")
+	}
 	return &RebateProcessor{
 		repo:             repo,
+		creditRepo:       creditRepo,
 		now:              time.Now,
 		orderIDGenerator: func() (string, error) { return randomNumeric(12) },
 	}
@@ -103,7 +115,7 @@ func (p *RebateProcessor) processIntegral(ctx context.Context, message rebate.Se
 	if err != nil {
 		return err
 	}
-	return p.repo.SaveRebateIntegralOrder(ctx, credit.RebateIntegralEntity{
+	return p.creditRepo.SaveRebateIntegralOrder(ctx, credit.RebateIntegralEntity{
 		UserID:        message.UserID,
 		OrderID:       orderID,
 		TradeAmount:   amount,

@@ -35,7 +35,7 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 	}
 	stock := &fakeExchangeStockService{ok: true}
 	publisher := &fakeExchangePublisher{}
-	service := NewExchangeService(repo, stock, publisher)
+	service := NewExchangeService(repo, stock, publisher, repo)
 	service.now = func() time.Time { return now }
 	service.orderIDGenerator = func() (string, error) { return "123456789012", nil }
 	service.messageIDGenerator = func() (string, error) { return "22222222222", nil }
