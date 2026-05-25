@@ -61,6 +61,24 @@ func TestQueryUserActivityAccountRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestQueryUserActivityAccountRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityAccountService: &fakeActivityAccountService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/query_user_activity_account", strings.NewReader(`{"userId":"","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestActivityArmoryRoute(t *testing.T) {
 	activityArmory := &fakeActivityArmoryService{}
 	strategyArmory := &fakeActivityStrategyArmoryService{}
@@ -174,6 +192,24 @@ func TestActivityDrawRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestActivityDrawRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityDrawService: &fakeActivityDrawService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/draw", strings.NewReader(`{"userId":"xiaofuge","activityId":0}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestQuerySkuProductListByActivityIDRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		ActivitySkuProductService: &fakeActivitySkuProductService{
@@ -274,6 +310,24 @@ func TestCreditPayExchangeSkuRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestCreditPayExchangeSkuRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityExchangeService: &fakeActivityExchangeService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/credit_pay_exchange_sku", strings.NewReader(`{"userId":"xiaofuge","sku":0}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestQueryUserCreditAccountRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		ActivityCreditService: &fakeActivityCreditService{amount: 12.35},
@@ -329,6 +383,24 @@ func TestCalendarSignRebateRoute(t *testing.T) {
 	}
 	if rebateService.signUserID != "xiaofuge" {
 		t.Fatalf("expected sign user, got %s", rebateService.signUserID)
+	}
+}
+
+func TestCalendarSignRebateRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityRebateService: &fakeActivityRebateService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/calendar_sign_rebate", strings.NewReader("userId="))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
 	}
 }
 
