@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	MySQL    MySQLConfig    `mapstructure:"mysql"`
+	Sharding ShardingConfig `mapstructure:"sharding"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	RabbitMQ RabbitMQConfig `mapstructure:"rabbitmq"`
 	Log      LogConfig      `mapstructure:"log"`
@@ -24,6 +25,10 @@ type MySQLConfig struct {
 	DSN          string `mapstructure:"dsn"`
 	MaxIdleConns int    `mapstructure:"max_idle_conns"`
 	MaxOpenConns int    `mapstructure:"max_open_conns"`
+}
+
+type ShardingConfig struct {
+	TableCount int `mapstructure:"table_count"`
 }
 
 type RedisConfig struct {
@@ -72,6 +77,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.port", 8091)
 	v.SetDefault("mysql.max_idle_conns", 10)
 	v.SetDefault("mysql.max_open_conns", 50)
+	v.SetDefault("sharding.table_count", 1)
 	v.SetDefault("redis.addr", "localhost:16379")
 	v.SetDefault("rabbitmq.url", "amqp://admin:admin@localhost:5672/")
 	v.SetDefault("log.level", "info")

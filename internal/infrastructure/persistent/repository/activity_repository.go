@@ -7,13 +7,15 @@ import (
 
 	"bm-go/internal/domain/activity"
 	"bm-go/internal/infrastructure/persistent/po"
+	"bm-go/internal/infrastructure/persistent/sharding"
 	"bm-go/internal/types"
 
 	"gorm.io/gorm"
 )
 
 type ActivityRepository struct {
-	db *gorm.DB
+	db      *gorm.DB
+	sharder sharding.Router
 }
 
 var _ activity.Repository = (*ActivityRepository)(nil)
@@ -25,8 +27,12 @@ var _ activity.PartakeRepository = (*ActivityRepository)(nil)
 var _ activity.RebateRepository = (*ActivityRepository)(nil)
 var _ activity.DeliveryRepository = (*ActivityRepository)(nil)
 
-func NewActivityRepository(db *gorm.DB) *ActivityRepository {
-	return &ActivityRepository{db: db}
+func NewActivityRepository(db *gorm.DB, routers ...sharding.Router) *ActivityRepository {
+	router := sharding.NewRouter(1)
+	if len(routers) > 0 {
+		router = routers[0]
+	}
+	return &ActivityRepository{db: db, sharder: router}
 }
 
 func (r *ActivityRepository) QueryActivityByActivityID(ctx context.Context, activityID int64) (activity.ActivityEntity, bool, error) {
@@ -148,6 +154,7 @@ func (r *ActivityRepository) QueryUserCreditAccount(ctx context.Context, userID 
 func (r *ActivityRepository) QueryNoUsedRaffleOrder(ctx context.Context, userID string, activityID int64) (activity.UserRaffleOrderEntity, bool, error) {
 	var orderPO po.UserRaffleOrder
 	err := r.db.WithContext(ctx).
+		Table(r.sharder.Table("user_raffle_order", userID)).
 		Select("user_id", "activity_id", "activity_name", "strategy_id", "order_id", "order_time", "order_state").
 		Where("user_id = ? and activity_id = ? and order_state = ?", userID, activityID, activity.UserRaffleOrderCreate).
 		First(&orderPO).
@@ -191,7 +198,7 @@ func (r *ActivityRepository) SaveCreatePartakeOrder(ctx context.Context, aggrega
 			OrderTime:    aggregate.UserRaffleOrder.OrderTime,
 			OrderState:   aggregate.UserRaffleOrder.OrderState,
 		}
-		if err := tx.Create(&orderPO).Error; err != nil {
+		if err := tx.Table(r.sharder.Table("user_raffle_order", aggregate.UserID)).Create(&orderPO).Error; err != nil {
 			return types.NewAppError(types.ResponseCodeIndexDup, err)
 		}
 		return nil
@@ -260,6 +267,7 @@ func (r *ActivityRepository) QuerySkuProductBySKU(ctx context.Context, sku int64
 func (r *ActivityRepository) QueryUnpaidActivityOrder(ctx context.Context, userID string, sku int64) (activity.SkuExchangeOrderEntity, bool, error) {
 	var orderPO po.RaffleActivityOrder
 	err := r.db.WithContext(ctx).
+		Table(r.sharder.Table("raffle_activity_order", userID)).
 		Select("user_id", "sku", "order_id", "out_business_no", "pay_amount").
 		Where("user_id = ? and sku = ? and state = ? and order_time >= date_sub(now(), interval 1 month)", userID, sku, activity.ActivityOrderWaitPay).
 		First(&orderPO).
@@ -296,7 +304,7 @@ func (r *ActivityRepository) SaveCreditPayOrder(ctx context.Context, aggregate a
 		State:         order.State,
 		OutBusinessNo: order.OutBusinessNo,
 	}
-	if err := r.db.WithContext(ctx).Create(&orderPO).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table(r.sharder.Table("raffle_activity_order", aggregate.UserID)).Create(&orderPO).Error; err != nil {
 		return types.NewAppError(types.ResponseCodeIndexDup, err)
 	}
 	return nil
@@ -308,7 +316,7 @@ func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggrega
 		if err := adjustUserCreditAccount(tx, aggregate.CreditOrder); err != nil {
 			return err
 		}
-		if err := tx.Create(&po.UserCreditOrder{
+		if err := tx.Table(r.sharder.Table("user_credit_order", aggregate.UserID)).Create(&po.UserCreditOrder{
 			UserID:        aggregate.CreditOrder.UserID,
 			OrderID:       aggregate.CreditOrder.OrderID,
 			TradeName:     aggregate.CreditOrder.TradeName,
@@ -359,7 +367,7 @@ func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate a
 			CreateTime:    now,
 			UpdateTime:    now,
 		}
-		if err := tx.Create(&orderPO).Error; err != nil {
+		if err := tx.Table(r.sharder.Table("raffle_activity_order", aggregate.UserID)).Create(&orderPO).Error; err != nil {
 			return types.NewAppError(types.ResponseCodeIndexDup, err)
 		}
 		return addActivityAccountQuota(tx, activity.CompleteSkuExchangeAggregate{
@@ -387,7 +395,7 @@ func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebate
 		if err := adjustOrCreateUserCreditAccount(tx, creditOrder, now); err != nil {
 			return err
 		}
-		if err := tx.Create(&po.UserCreditOrder{
+		if err := tx.Table(r.sharder.Table("user_credit_order", rebateIntegral.UserID)).Create(&po.UserCreditOrder{
 			UserID:        creditOrder.UserID,
 			OrderID:       creditOrder.OrderID,
 			TradeName:     creditOrder.TradeName,
@@ -408,6 +416,7 @@ func (r *ActivityRepository) DeliverActivityOrder(ctx context.Context, deliveryO
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var orderPO po.RaffleActivityOrder
 		err := tx.
+			Table(r.sharder.Table("raffle_activity_order", deliveryOrder.UserID)).
 			Select("user_id", "activity_id", "total_count", "day_count", "month_count", "state").
 			Where("user_id = ? and out_business_no = ?", deliveryOrder.UserID, deliveryOrder.OutBusinessNo).
 			First(&orderPO).
@@ -419,7 +428,7 @@ func (r *ActivityRepository) DeliverActivityOrder(ctx context.Context, deliveryO
 			return err
 		}
 
-		result := tx.Model(&po.RaffleActivityOrder{}).
+		result := tx.Table(r.sharder.Table("raffle_activity_order", deliveryOrder.UserID)).
 			Where("user_id = ? and out_business_no = ? and state = ?", deliveryOrder.UserID, deliveryOrder.OutBusinessNo, activity.ActivityOrderWaitPay).
 			Updates(map[string]any{
 				"state":       activity.ActivityOrderCompleted,

@@ -18,6 +18,7 @@ import (
 	strategyservice "bm-go/internal/domain/strategy/service"
 	"bm-go/internal/infrastructure/persistent/mysql"
 	"bm-go/internal/infrastructure/persistent/repository"
+	"bm-go/internal/infrastructure/persistent/sharding"
 	infrabbitmq "bm-go/internal/infrastructure/rabbitmq"
 	infrredis "bm-go/internal/infrastructure/redis"
 	triggerhttp "bm-go/internal/trigger/http"
@@ -52,10 +53,11 @@ func main() {
 
 	strategyStore := infrredis.NewStrategyStore(redisClient)
 	activityStore := infrredis.NewActivityStore(redisClient)
+	tableRouter := sharding.NewRouter(cfg.Sharding.TableCount)
 	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
-	activityRepository := repository.NewActivityRepository(db)
-	awardRepository := repository.NewAwardRepository(db)
-	rebateRepository := repository.NewRebateRepository(db)
+	activityRepository := repository.NewActivityRepository(db, tableRouter)
+	awardRepository := repository.NewAwardRepository(db, tableRouter)
+	rebateRepository := repository.NewRebateRepository(db, tableRouter)
 	strategyDispatch := repository.NewStrategyDispatch(redisClient)
 	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
 	treeNodes := map[string]tree.Node{

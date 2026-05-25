@@ -6,19 +6,25 @@ import (
 
 	"bm-go/internal/domain/rebate"
 	"bm-go/internal/infrastructure/persistent/po"
+	"bm-go/internal/infrastructure/persistent/sharding"
 	"bm-go/internal/types"
 
 	"gorm.io/gorm"
 )
 
 type RebateRepository struct {
-	db *gorm.DB
+	db      *gorm.DB
+	sharder sharding.Router
 }
 
 var _ rebate.Repository = (*RebateRepository)(nil)
 
-func NewRebateRepository(db *gorm.DB) *RebateRepository {
-	return &RebateRepository{db: db}
+func NewRebateRepository(db *gorm.DB, routers ...sharding.Router) *RebateRepository {
+	router := sharding.NewRouter(1)
+	if len(routers) > 0 {
+		router = routers[0]
+	}
+	return &RebateRepository{db: db, sharder: router}
 }
 
 func (r *RebateRepository) QueryDailyBehaviorRebateConfig(ctx context.Context, behaviorType string) ([]rebate.DailyBehaviorRebateEntity, error) {
@@ -60,7 +66,7 @@ func (r *RebateRepository) SaveUserRebateRecords(ctx context.Context, aggregates
 				CreateTime:    now,
 				UpdateTime:    now,
 			}
-			if err := tx.Create(&orderPO).Error; err != nil {
+			if err := tx.Table(r.sharder.Table("user_behavior_rebate_order", aggregate.UserID)).Create(&orderPO).Error; err != nil {
 				return types.NewAppError(types.ResponseCodeIndexDup, err)
 			}
 
@@ -84,6 +90,7 @@ func (r *RebateRepository) SaveUserRebateRecords(ctx context.Context, aggregates
 func (r *RebateRepository) QueryOrderByOutBusinessNo(ctx context.Context, userID string, outBusinessNo string) ([]rebate.BehaviorRebateOrderEntity, error) {
 	var orderPOList []po.UserBehaviorRebateOrder
 	err := r.db.WithContext(ctx).
+		Table(r.sharder.Table("user_behavior_rebate_order", userID)).
 		Select("user_id", "order_id", "behavior_type", "rebate_desc", "rebate_type", "rebate_config", "out_business_no", "biz_id").
 		Where("user_id = ? and out_business_no = ?", userID, outBusinessNo).
 		Find(&orderPOList).

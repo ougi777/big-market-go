@@ -7,20 +7,26 @@ import (
 	"bm-go/internal/domain/activity"
 	"bm-go/internal/domain/award"
 	"bm-go/internal/infrastructure/persistent/po"
+	"bm-go/internal/infrastructure/persistent/sharding"
 	"bm-go/internal/types"
 
 	"gorm.io/gorm"
 )
 
 type AwardRepository struct {
-	db *gorm.DB
+	db      *gorm.DB
+	sharder sharding.Router
 }
 
 var _ award.Repository = (*AwardRepository)(nil)
 var _ award.TaskRepository = (*AwardRepository)(nil)
 
-func NewAwardRepository(db *gorm.DB) *AwardRepository {
-	return &AwardRepository{db: db}
+func NewAwardRepository(db *gorm.DB, routers ...sharding.Router) *AwardRepository {
+	router := sharding.NewRouter(1)
+	if len(routers) > 0 {
+		router = routers[0]
+	}
+	return &AwardRepository{db: db, sharder: router}
 }
 
 func (r *AwardRepository) SaveUserAwardRecord(ctx context.Context, record award.UserAwardRecordEntity) error {
@@ -36,7 +42,7 @@ func (r *AwardRepository) SaveUserAwardRecord(ctx context.Context, record award.
 			AwardTime:  record.AwardTime,
 			AwardState: record.AwardState,
 		}
-		if err := tx.Create(&recordPO).Error; err != nil {
+		if err := tx.Table(r.sharder.Table("user_award_record", record.UserID)).Create(&recordPO).Error; err != nil {
 			return types.NewAppError(types.ResponseCodeIndexDup, err)
 		}
 		if record.SendTask.MessageID != "" {
@@ -54,7 +60,7 @@ func (r *AwardRepository) SaveUserAwardRecord(ctx context.Context, record award.
 			}
 		}
 
-		result := tx.Model(&po.UserRaffleOrder{}).
+		result := tx.Table(r.sharder.Table("user_raffle_order", record.UserID)).
 			Where("user_id = ? and order_id = ? and order_state = ?", record.UserID, record.OrderID, activity.UserRaffleOrderCreate).
 			Update("order_state", activity.UserRaffleOrderUsed)
 		if result.Error != nil {
@@ -121,7 +127,7 @@ func (r *AwardRepository) SaveGiveOutPrizes(ctx context.Context, aggregate award
 			}
 		}
 
-		updateAward := tx.Model(&po.UserAwardRecord{}).
+		updateAward := tx.Table(r.sharder.Table("user_award_record", aggregate.UserAwardRecord.UserID)).
 			Where("user_id = ? and order_id = ? and award_state = ?", aggregate.UserAwardRecord.UserID, aggregate.UserAwardRecord.OrderID, award.AwardStateCreate).
 			Updates(map[string]any{
 				"award_state": aggregate.UserAwardRecord.AwardState,

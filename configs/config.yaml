@@ -6,6 +6,9 @@ mysql:
   max_idle_conns: 10
   max_open_conns: 50
 
+sharding:
+  table_count: 1
+
 redis:
   addr: localhost:16379
   password: ""
