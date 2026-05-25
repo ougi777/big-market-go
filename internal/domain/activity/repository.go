@@ -14,9 +14,11 @@ type SkuProductRepository interface {
 
 type SkuStockStore interface {
 	CacheActivitySkuStockCount(ctx context.Context, key string, stockCount int) error
+	SubtractActivitySkuStock(ctx context.Context, key string) (int64, error)
 }
 
 type SkuStockQueue interface {
+	SendActivitySkuStockConsumeQueue(ctx context.Context, stockKey ActivitySkuStockKey) error
 	TakeActivitySkuStock(ctx context.Context) (ActivitySkuStockKey, bool, error)
 	ClearActivitySkuStockQueue(ctx context.Context) error
 }

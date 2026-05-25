@@ -55,3 +55,7 @@ func (f *fakeActivitySkuStockStore) CacheActivitySkuStockCount(ctx context.Conte
 	f.stocks[key] = stockCount
 	return nil
 }
+
+func (f *fakeActivitySkuStockStore) SubtractActivitySkuStock(ctx context.Context, key string) (int64, error) {
+	return 0, nil
+}

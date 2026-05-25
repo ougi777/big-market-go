@@ -32,6 +32,18 @@ func (s *ActivityStore) CacheActivitySkuStockCount(ctx context.Context, key stri
 	return s.client.Set(ctx, key, stockCount, 0).Err()
 }
 
+func (s *ActivityStore) SubtractActivitySkuStock(ctx context.Context, key string) (int64, error) {
+	return s.client.Decr(ctx, key).Result()
+}
+
+func (s *ActivityStore) SendActivitySkuStockConsumeQueue(ctx context.Context, stockKey activity.ActivitySkuStockKey) error {
+	value, err := json.Marshal(stockKey)
+	if err != nil {
+		return err
+	}
+	return s.client.RPush(ctx, types.RedisKeyActivitySkuStockQueue, string(value)).Err()
+}
+
 func (s *ActivityStore) TakeActivitySkuStock(ctx context.Context) (activity.ActivitySkuStockKey, bool, error) {
 	value, err := s.client.LPop(ctx, types.RedisKeyActivitySkuStockQueue).Result()
 	if err == goredis.Nil {

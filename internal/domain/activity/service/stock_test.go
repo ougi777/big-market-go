@@ -13,7 +13,7 @@ func TestStockServiceUpdateActivitySkuStock(t *testing.T) {
 		key: activity.ActivitySkuStockKey{SKU: 9011, ActivityID: 100301},
 		ok:  true,
 	}
-	service := NewStockService(repo, queue)
+	service := NewStockService(repo, queue, nil, nil)
 
 	updated, err := service.UpdateActivitySkuStock(context.Background())
 	if err != nil {
@@ -30,7 +30,7 @@ func TestStockServiceUpdateActivitySkuStock(t *testing.T) {
 func TestStockServiceClearActivitySkuStock(t *testing.T) {
 	repo := &fakeActivityStockRepository{}
 	queue := &fakeActivityStockQueue{}
-	service := NewStockService(repo, queue)
+	service := NewStockService(repo, queue, nil, nil)
 
 	err := service.ClearActivitySkuStock(context.Background(), 9011)
 	if err != nil {
@@ -41,6 +41,27 @@ func TestStockServiceClearActivitySkuStock(t *testing.T) {
 	}
 	if !queue.cleared {
 		t.Fatal("expected queue cleared")
+	}
+}
+
+func TestStockServiceSubtractActivitySkuStock(t *testing.T) {
+	repo := &fakeActivityStockRepository{}
+	queue := &fakeActivityStockQueue{}
+	store := &fakeActivityStockStore{surplus: 8}
+	service := NewStockService(repo, queue, store, nil)
+
+	ok, err := service.SubtractActivitySkuStock(context.Background(), 9011, 100301)
+	if err != nil {
+		t.Fatalf("subtract activity sku stock: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected subtract ok")
+	}
+	if store.key == "" {
+		t.Fatal("expected redis key recorded")
+	}
+	if queue.sent.SKU != 9011 || queue.sent.ActivityID != 100301 {
+		t.Fatalf("expected stock queue item, got %+v", queue.sent)
 	}
 }
 
@@ -63,6 +84,12 @@ type fakeActivityStockQueue struct {
 	key     activity.ActivitySkuStockKey
 	ok      bool
 	cleared bool
+	sent    activity.ActivitySkuStockKey
+}
+
+func (f *fakeActivityStockQueue) SendActivitySkuStockConsumeQueue(ctx context.Context, stockKey activity.ActivitySkuStockKey) error {
+	f.sent = stockKey
+	return nil
 }
 
 func (f *fakeActivityStockQueue) TakeActivitySkuStock(ctx context.Context) (activity.ActivitySkuStockKey, bool, error) {
@@ -72,4 +99,18 @@ func (f *fakeActivityStockQueue) TakeActivitySkuStock(ctx context.Context) (acti
 func (f *fakeActivityStockQueue) ClearActivitySkuStockQueue(ctx context.Context) error {
 	f.cleared = true
 	return nil
+}
+
+type fakeActivityStockStore struct {
+	key     string
+	surplus int64
+}
+
+func (f *fakeActivityStockStore) CacheActivitySkuStockCount(ctx context.Context, key string, stockCount int) error {
+	return nil
+}
+
+func (f *fakeActivityStockStore) SubtractActivitySkuStock(ctx context.Context, key string) (int64, error) {
+	f.key = key
+	return f.surplus, nil
 }

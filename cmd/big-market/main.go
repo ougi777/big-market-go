@@ -69,7 +69,7 @@ func main() {
 	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
 	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
 	activityPartakeService := activityservice.NewPartakeService(activityRepository)
-	activityStockService := activityservice.NewStockService(activityRepository, activityStore)
+	activityStockService := activityservice.NewStockService(activityRepository, activityStore, activityStore, rabbitmqClient)
 	awardService := awardservice.NewAwardService(awardRepository, awardRepository, rabbitmqClient)
 	taskService := awardservice.NewTaskService(awardRepository, rabbitmqClient)
 	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
