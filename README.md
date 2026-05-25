@@ -19,6 +19,7 @@
 ```text
 cmd/big-market              应用启动入口
 configs                     本地配置
+internal/app                应用装配、HTTP 服务、定时任务、消费者生命周期
 internal/config             配置加载
 internal/trigger/http       HTTP 接口
 internal/trigger/job        定时任务
@@ -39,7 +40,7 @@ internal/types              通用响应、错误码、错误类型
 - 分库分表：兼容 Java `mini-db-router` 算法，支持用户流水表分表、用户交易链路运行时分库、消息任务多库补偿扫描。
 - 错误处理：补齐策略权重和策略未装配错误码，策略接口透传业务错误。
 - 消息消费：发奖、返利、积分调整成功消费者支持唯一键冲突幂等。
-- 测试覆盖：已覆盖策略装配、责任链、规则树、Redis 调度、活动抽奖、活动账户、活动库存、兑换、奖品、返利、积分、消费者、定时任务、分库分表、基础设施保护和 HTTP 参数校验。
+- 测试覆盖：已覆盖策略装配、责任链、规则树、Redis 调度、活动抽奖、活动账户、活动库存、兑换、奖品、返利、积分、消费者、定时任务、分库分表、基础设施保护、HTTP 参数校验和核心仓储事务。
 
 ## 本地运行
 
@@ -55,6 +56,15 @@ go run ./cmd/big-market
 
 ```text
 configs/config.yaml
+```
+
+常用配置项：
+
+```yaml
+log:
+  level: info
+job:
+  spec: "*/5 * * * * *"
 ```
 
 健康检查：
