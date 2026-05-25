@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/types"
 )
 
 func TestQueryUserActivityAccountRoute(t *testing.T) {
@@ -93,6 +94,26 @@ func TestActivityDrawRoute(t *testing.T) {
 	}
 }
 
+func TestActivityDrawRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityDrawService: &fakeActivityDrawService{
+			err: types.NewAppError(types.ResponseCodeActivityDateError, nil),
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/draw", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_004"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
 func TestQuerySkuProductListByActivityIDRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		ActivitySkuProductService: &fakeActivitySkuProductService{
@@ -154,6 +175,26 @@ func TestCreditPayExchangeSkuRoute(t *testing.T) {
 	}
 }
 
+func TestCreditPayExchangeSkuRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityExchangeService: &fakeActivityExchangeService{
+			err: types.NewAppError(types.ResponseCodeAccountQuotaError, nil),
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/credit_pay_exchange_sku", strings.NewReader(`{"userId":"xiaofuge","sku":9011}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_006"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
 func TestQueryUserCreditAccountRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		ActivityCreditService: &fakeActivityCreditService{amount: 12.35},
@@ -168,6 +209,25 @@ func TestQueryUserCreditAccountRoute(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `"data":12.35`) {
 		t.Fatalf("expected credit amount, got %s", recorder.Body.String())
+	}
+}
+
+func TestQueryUserCreditAccountRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityCreditService: &fakeActivityCreditService{
+			err: types.NewAppError(types.ResponseCodeAccountQuotaError, nil),
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/query_user_credit_account?userId=xiaofuge", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_006"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
 	}
 }
 
@@ -251,9 +311,13 @@ func (f *fakeActivityStrategyArmoryService) AssembleLotteryStrategyByActivityID(
 
 type fakeActivityDrawService struct {
 	result activity.DrawResult
+	err    error
 }
 
 func (f *fakeActivityDrawService) Draw(ctx context.Context, userID string, activityID int64) (activity.DrawResult, error) {
+	if f.err != nil {
+		return activity.DrawResult{}, f.err
+	}
 	return f.result, nil
 }
 
@@ -261,19 +325,27 @@ type fakeActivityExchangeService struct {
 	userID string
 	sku    int64
 	result bool
+	err    error
 }
 
 func (f *fakeActivityExchangeService) CreditPayExchangeSku(ctx context.Context, userID string, sku int64) (bool, error) {
 	f.userID = userID
 	f.sku = sku
+	if f.err != nil {
+		return false, f.err
+	}
 	return f.result, nil
 }
 
 type fakeActivityCreditService struct {
 	amount float64
+	err    error
 }
 
 func (f *fakeActivityCreditService) QueryUserCreditAccount(ctx context.Context, userID string) (float64, error) {
+	if f.err != nil {
+		return 0, f.err
+	}
 	return f.amount, nil
 }
 

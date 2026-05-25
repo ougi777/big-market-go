@@ -65,6 +65,24 @@ func TestRandomRaffleRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestRandomRaffleRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		RaffleService: &fakeRaffleService{awardID: 101},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/random_raffle", strings.NewReader(`{"strategyId":0}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestQueryRaffleAwardListRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{
 		QueryService: &fakeQueryService{
@@ -92,6 +110,24 @@ func TestQueryRaffleAwardListRoute(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `"awardTitle":"积分"`) {
 		t.Fatalf("expected award title, got %s", recorder.Body.String())
+	}
+}
+
+func TestQueryRaffleAwardListRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		QueryService: &fakeQueryService{err: types.NewAppError(types.ResponseCodeAccountQuotaError, nil)},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/query_raffle_award_list", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_006"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
 	}
 }
 
@@ -123,6 +159,24 @@ func TestQueryRaffleStrategyRuleWeightRoute(t *testing.T) {
 	}
 }
 
+func TestQueryRaffleStrategyRuleWeightRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		QueryService: &fakeQueryService{err: types.NewAppError(types.ResponseCodeStrategyRuleWeightNull, nil)},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/query_raffle_strategy_rule_weight", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_001"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
 type fakeArmoryService struct{}
 
 func (f *fakeArmoryService) AssembleLotteryStrategy(ctx context.Context, strategyID int64) error {
@@ -144,12 +198,19 @@ func (f *fakeRaffleService) PerformRaffle(ctx context.Context, userID string, st
 type fakeQueryService struct {
 	awards      []strategyservice.RaffleAward
 	ruleWeights []strategyservice.RaffleStrategyRuleWeight
+	err         error
 }
 
 func (f *fakeQueryService) QueryRaffleAwardList(ctx context.Context, activityID int64, userID string) ([]strategyservice.RaffleAward, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	return f.awards, nil
 }
 
 func (f *fakeQueryService) QueryRaffleStrategyRuleWeight(ctx context.Context, activityID int64, userID string) ([]strategyservice.RaffleStrategyRuleWeight, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	return f.ruleWeights, nil
 }
