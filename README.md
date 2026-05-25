@@ -30,12 +30,13 @@ internal/types              通用响应、错误码、错误类型
 
 ## 当前进度
 
-- 策略模块：策略装配、责任链、规则树、Redis 概率表、库存同步。
-- 活动模块：活动装配、活动抽奖、活动账户查询、SKU 查询、积分兑换。
+- 策略模块：策略装配、责任链、规则树、Redis 概率表、库存扣减、库存同步。
+- 活动模块：活动装配、活动抽奖、活动账户查询、SKU 查询、积分兑换、异步发货。
 - 奖品模块：中奖记录、发奖消息、发奖消费、任务补偿。
 - 返利模块：日历签到、返利订单、返利消息消费。
-- 积分模块：积分账户查询、积分扣减、异步发货消息。
-- 基础设施：MySQL、Redis、RabbitMQ、Cron、用户分表表名路由、多数据源配置结构。
+- 积分模块：积分账户查询、积分扣减、积分发放、兑换成功消息。
+- 分库分表：兼容 Java `mini-db-router` 算法，支持用户流水表分表、用户交易链路运行时分库、消息任务多库补偿扫描。
+- 错误处理：补齐策略权重和策略未装配错误码，策略接口透传业务错误。
 
 ## 本地运行
 
@@ -81,7 +82,7 @@ GET  /api/v1/raffle/activity/query_user_credit_account?userId=xiaofuge
 POST /api/v1/raffle/activity/credit_pay_exchange_sku
 ```
 
-## 分表配置
+## 分库分表配置
 
 默认使用单库单表：
 
@@ -94,7 +95,7 @@ sharding:
   table_count: 1
 ```
 
-需要兼容 Java 项目 `big_market_01`、`big_market_02` 分库分表数据时，可配置：
+访问 Java 项目 `big_market_01`、`big_market_02` 分库分表数据时，可配置：
 
 ```yaml
 mysql:
@@ -109,7 +110,7 @@ sharding:
   table_count: 4
 ```
 
-当前支持分表表名路由的用户流水表：
+已支持表名路由的用户流水表：
 
 ```text
 raffle_activity_order
@@ -119,4 +120,4 @@ user_behavior_rebate_order
 user_credit_order
 ```
 
-多数据源运行时路由仍在后续重构范围内。
+活动账户表、积分账户表和任务表按用户分库路由，保持与 Java 数据分布一致。
