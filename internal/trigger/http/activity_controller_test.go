@@ -268,6 +268,23 @@ func TestQuerySkuProductListByActivityIDRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestQuerySkuProductListByActivityIDRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivitySkuProductService: &fakeActivitySkuProductService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/query_sku_product_list_by_activity_id?activityId=0", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestCreditPayExchangeSkuRoute(t *testing.T) {
 	exchange := &fakeActivityExchangeService{result: true}
 	router := NewRouter(RouterOptions{
@@ -364,6 +381,23 @@ func TestQueryUserCreditAccountRouteReturnsAppErrorCode(t *testing.T) {
 	}
 }
 
+func TestQueryUserCreditAccountRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityCreditService: &fakeActivityCreditService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/query_user_credit_account?userId=", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
+	}
+}
+
 func TestCalendarSignRebateRoute(t *testing.T) {
 	rebateService := &fakeActivityRebateService{signResult: true}
 	router := NewRouter(RouterOptions{
@@ -423,6 +457,24 @@ func TestIsCalendarSignRebateRoute(t *testing.T) {
 	}
 	if rebateService.queryUserID != "xiaofuge" {
 		t.Fatalf("expected query user, got %s", rebateService.queryUserID)
+	}
+}
+
+func TestIsCalendarSignRebateRouteIllegalParam(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityRebateService: &fakeActivityRebateService{},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/is_calendar_sign_rebate", strings.NewReader("userId="))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"0002"`) {
+		t.Fatalf("expected illegal param code, got %s", recorder.Body.String())
 	}
 }
 
