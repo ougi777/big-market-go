@@ -123,6 +123,11 @@ func (c *raffleStrategyController) randomRaffle(ctx *gin.Context) {
 
 	result, err := c.raffleService.PerformRaffle(ctx.Request.Context(), "system", request.StrategyID)
 	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, raffleStrategyResponse{}))
+			return
+		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, raffleStrategyResponse{}))
 		return
 	}
@@ -142,6 +147,11 @@ func (c *raffleStrategyController) queryRaffleAwardList(ctx *gin.Context) {
 
 	awards, err := c.queryService.QueryRaffleAwardList(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, []raffleAwardListResponse{}))
+			return
+		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []raffleAwardListResponse{}))
 		return
 	}
@@ -177,6 +187,11 @@ func (c *raffleStrategyController) queryRaffleStrategyRuleWeight(ctx *gin.Contex
 
 	ruleWeights, err := c.queryService.QueryRaffleStrategyRuleWeight(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, []raffleStrategyRuleWeightResponse{}))
+			return
+		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []raffleStrategyRuleWeightResponse{}))
 		return
 	}

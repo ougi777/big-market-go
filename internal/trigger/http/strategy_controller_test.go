@@ -9,6 +9,7 @@ import (
 
 	"bm-go/internal/domain/strategy/rule/chain"
 	strategyservice "bm-go/internal/domain/strategy/service"
+	"bm-go/internal/types"
 )
 
 func TestStrategyArmoryRoute(t *testing.T) {
@@ -43,6 +44,24 @@ func TestRandomRaffleRoute(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `"awardId":101`) {
 		t.Fatalf("expected award id 101, got %s", recorder.Body.String())
+	}
+}
+
+func TestRandomRaffleRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		RaffleService: &fakeRaffleService{err: types.NewAppError(types.ResponseCodeUnassembledStrategy, nil)},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/strategy/random_raffle", strings.NewReader(`{"strategyId":100001}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_002"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
 	}
 }
 
@@ -112,9 +131,13 @@ func (f *fakeArmoryService) AssembleLotteryStrategy(ctx context.Context, strateg
 
 type fakeRaffleService struct {
 	awardID int
+	err     error
 }
 
 func (f *fakeRaffleService) PerformRaffle(ctx context.Context, userID string, strategyID int64) (chain.AwardResult, error) {
+	if f.err != nil {
+		return chain.AwardResult{}, f.err
+	}
 	return chain.AwardResult{AwardID: f.awardID}, nil
 }
 
