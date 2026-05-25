@@ -119,6 +119,72 @@ func TestCalendarSignRebateMarksTaskFailOnPublishError(t *testing.T) {
 	}
 }
 
+func TestCalendarSignRebateIllegalParam(t *testing.T) {
+	service := NewRebateService(&fakeRebateRepository{}, &fakeRebatePublisher{})
+
+	_, err := service.CalendarSignRebate(context.Background(), " ")
+	if err == nil {
+		t.Fatal("expected illegal param error")
+	}
+}
+
+func TestCalendarSignRebateReturnsFalseWhenConfigEmpty(t *testing.T) {
+	service := NewRebateService(&fakeRebateRepository{}, &fakeRebatePublisher{})
+
+	result, err := service.CalendarSignRebate(context.Background(), "xiaofuge")
+	if err != nil {
+		t.Fatalf("calendar sign rebate: %v", err)
+	}
+	if result {
+		t.Fatal("expected no rebate")
+	}
+}
+
+func TestCalendarSignRebateConfigError(t *testing.T) {
+	repo := &fakeRebateRepository{configErr: errors.New("query config failed")}
+	service := NewRebateService(repo, &fakeRebatePublisher{})
+
+	_, err := service.CalendarSignRebate(context.Background(), "xiaofuge")
+	if err == nil {
+		t.Fatal("expected config error")
+	}
+}
+
+func TestCalendarSignRebateSaveError(t *testing.T) {
+	repo := &fakeRebateRepository{
+		configs: []rebate.DailyBehaviorRebateEntity{
+			{BehaviorType: rebate.BehaviorTypeSign, RebateType: rebate.RebateTypeIntegral, RebateConfig: "10"},
+		},
+		saveErr: errors.New("save failed"),
+	}
+	service := NewRebateService(repo, &fakeRebatePublisher{})
+	service.newID = func(length int) (string, error) { return "123456789012", nil }
+
+	_, err := service.CalendarSignRebate(context.Background(), "xiaofuge")
+	if err == nil {
+		t.Fatal("expected save error")
+	}
+}
+
+func TestIsCalendarSignRebateIllegalParam(t *testing.T) {
+	service := NewRebateService(&fakeRebateRepository{}, &fakeRebatePublisher{})
+
+	_, err := service.IsCalendarSignRebate(context.Background(), " ")
+	if err == nil {
+		t.Fatal("expected illegal param error")
+	}
+}
+
+func TestIsCalendarSignRebateRepositoryError(t *testing.T) {
+	repo := &fakeRebateRepository{queryErr: errors.New("query order failed")}
+	service := NewRebateService(repo, &fakeRebatePublisher{})
+
+	_, err := service.IsCalendarSignRebate(context.Background(), "xiaofuge")
+	if err == nil {
+		t.Fatal("expected query order error")
+	}
+}
+
 type fakeRebateRepository struct {
 	configs            []rebate.DailyBehaviorRebateEntity
 	orders             []rebate.BehaviorRebateOrderEntity
@@ -127,21 +193,24 @@ type fakeRebateRepository struct {
 	failed             []string
 	queryUserID        string
 	queryOutBusinessNo string
+	configErr          error
+	saveErr            error
+	queryErr           error
 }
 
 func (f *fakeRebateRepository) QueryDailyBehaviorRebateConfig(ctx context.Context, behaviorType string) ([]rebate.DailyBehaviorRebateEntity, error) {
-	return f.configs, nil
+	return f.configs, f.configErr
 }
 
 func (f *fakeRebateRepository) SaveUserRebateRecords(ctx context.Context, aggregates []rebate.BehaviorRebateAggregate) error {
 	f.saved = aggregates
-	return nil
+	return f.saveErr
 }
 
 func (f *fakeRebateRepository) QueryOrderByOutBusinessNo(ctx context.Context, userID string, outBusinessNo string) ([]rebate.BehaviorRebateOrderEntity, error) {
 	f.queryUserID = userID
 	f.queryOutBusinessNo = outBusinessNo
-	return f.orders, nil
+	return f.orders, f.queryErr
 }
 
 func (f *fakeRebateRepository) UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error {
