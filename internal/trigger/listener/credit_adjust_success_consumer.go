@@ -52,6 +52,10 @@ func (c *CreditAdjustSuccessConsumer) handle(ctx context.Context, message string
 	}
 
 	if err := c.deliverer.DeliverActivityOrder(ctx, event.Data.UserID, event.Data.OutBusinessNo); err != nil {
+		if isIndexDuplicateError(err) {
+			c.logger.Info("deliver activity order ignored duplicate", zap.String("userId", event.Data.UserID), zap.String("outBusinessNo", event.Data.OutBusinessNo))
+			return nil
+		}
 		c.logger.Error("deliver activity order failed", zap.Error(err), zap.String("message", message))
 		return err
 	}

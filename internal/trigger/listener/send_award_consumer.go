@@ -62,6 +62,10 @@ func (c *SendAwardConsumer) handle(ctx context.Context, message string) error {
 		AwardConfig: event.Data.AwardConfig,
 	})
 	if err != nil {
+		if isIndexDuplicateError(err) {
+			c.logger.Info("distribute award ignored duplicate", zap.String("userId", event.Data.UserID), zap.String("orderId", event.Data.OrderID))
+			return nil
+		}
 		c.logger.Error("distribute award failed", zap.Error(err), zap.String("message", message))
 		return err
 	}

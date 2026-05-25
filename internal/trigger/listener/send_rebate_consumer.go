@@ -52,6 +52,10 @@ func (c *SendRebateConsumer) handle(ctx context.Context, message string) error {
 	}
 
 	if err := c.processor.ProcessRebate(ctx, event.Data); err != nil {
+		if isIndexDuplicateError(err) {
+			c.logger.Info("process rebate ignored duplicate", zap.String("userId", event.Data.UserID), zap.String("bizId", event.Data.BizID))
+			return nil
+		}
 		c.logger.Error("process rebate failed", zap.Error(err), zap.String("message", message))
 		return err
 	}
