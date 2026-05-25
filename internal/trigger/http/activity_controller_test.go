@@ -1,0 +1,49 @@
+package http
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"bm-go/internal/domain/activity"
+)
+
+func TestQueryUserActivityAccountRoute(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityAccountService: &fakeActivityAccountService{
+			account: activity.AccountEntity{
+				TotalCount:        100,
+				TotalCountSurplus: 80,
+				DayCount:          5,
+				DayCountSurplus:   3,
+				MonthCount:        50,
+				MonthCountSurplus: 35,
+			},
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/query_user_activity_account", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"totalCount":100`) {
+		t.Fatalf("expected total count, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"monthCountSurplus":35`) {
+		t.Fatalf("expected month count surplus, got %s", recorder.Body.String())
+	}
+}
+
+type fakeActivityAccountService struct {
+	account activity.AccountEntity
+}
+
+func (f *fakeActivityAccountService) QueryActivityAccount(ctx context.Context, activityID int64, userID string) (activity.AccountEntity, error) {
+	return f.account, nil
+}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"bm-go/internal/config"
+	activityservice "bm-go/internal/domain/activity/service"
 	"bm-go/internal/domain/strategy/rule/chain"
 	"bm-go/internal/domain/strategy/rule/tree"
 	strategyservice "bm-go/internal/domain/strategy/service"
@@ -42,6 +43,7 @@ func main() {
 
 	strategyStore := infrredis.NewStrategyStore(redisClient)
 	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
+	activityRepository := repository.NewActivityRepository(db)
 	strategyDispatch := repository.NewStrategyDispatch(redisClient)
 	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
 	treeNodes := map[string]tree.Node{
@@ -53,12 +55,14 @@ func main() {
 	raffleService := strategyservice.NewRaffleService(chainFactory, strategyRepository, treeNodes)
 	queryService := strategyservice.NewQueryService(strategyRepository)
 	stockService := strategyservice.NewStockService(strategyRepository, strategyStore)
+	activityAccountService := activityservice.NewAccountService(activityRepository)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
-		Logger:        logger,
-		ArmoryService: armoryService,
-		RaffleService: raffleService,
-		QueryService:  queryService,
+		Logger:                 logger,
+		ArmoryService:          armoryService,
+		RaffleService:          raffleService,
+		QueryService:           queryService,
+		ActivityAccountService: activityAccountService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),

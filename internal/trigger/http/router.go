@@ -6,10 +6,11 @@ import (
 )
 
 type RouterOptions struct {
-	Logger        *zap.Logger
-	ArmoryService strategyArmoryService
-	RaffleService raffleStrategyService
-	QueryService  strategyQueryService
+	Logger                 *zap.Logger
+	ArmoryService          strategyArmoryService
+	RaffleService          raffleStrategyService
+	QueryService           strategyQueryService
+	ActivityAccountService activityAccountService
 }
 
 func NewRouter(opts RouterOptions) *gin.Engine {
@@ -30,4 +31,5 @@ func registerV1Routes(router *gin.Engine, opts RouterOptions) {
 	})
 
 	registerRaffleStrategyRoutes(v1, opts)
+	registerRaffleActivityRoutes(v1, opts)
 }
