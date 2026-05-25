@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
 
 	"bm-go/internal/config"
 	"bm-go/internal/domain/award"
@@ -12,6 +13,8 @@ import (
 type Client struct {
 	conn *amqp.Connection
 }
+
+var ErrClientNotConnected = errors.New("rabbitmq client is not connected")
 
 var _ award.MessagePublisher = (*Client)(nil)
 
@@ -31,6 +34,9 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) Publish(ctx context.Context, topic string, message string) error {
+	if c == nil || c.conn == nil {
+		return ErrClientNotConnected
+	}
 	ch, err := c.conn.Channel()
 	if err != nil {
 		return err
@@ -47,6 +53,9 @@ func (c *Client) Publish(ctx context.Context, topic string, message string) erro
 }
 
 func (c *Client) Consume(ctx context.Context, topic string, handler func(context.Context, string) error) error {
+	if c == nil || c.conn == nil {
+		return ErrClientNotConnected
+	}
 	ch, err := c.conn.Channel()
 	if err != nil {
 		return err
