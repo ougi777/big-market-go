@@ -44,7 +44,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("open mysql failed", zap.Error(err))
 	}
-	db := dbRouter.Default()
 	redisClient := infrredis.NewClient(cfg.Redis)
 	rabbitmqClient, err := infrabbitmq.Dial(cfg.RabbitMQ)
 	if err != nil {
@@ -55,7 +54,7 @@ func main() {
 	strategyStore := infrredis.NewStrategyStore(redisClient)
 	activityStore := infrredis.NewActivityStore(redisClient)
 	tableRouter := sharding.NewRouterWithDBCount(cfg.Sharding.DBCount, cfg.Sharding.TableCount)
-	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
+	strategyRepository := repository.NewStrategyRepositoryWithDBRouter(dbRouter, tableRouter, strategyStore)
 	activityRepository := repository.NewActivityRepositoryWithDBRouter(dbRouter, tableRouter)
 	awardRepository := repository.NewAwardRepositoryWithDBRouter(dbRouter, tableRouter)
 	rebateRepository := repository.NewRebateRepositoryWithDBRouter(dbRouter, tableRouter)
