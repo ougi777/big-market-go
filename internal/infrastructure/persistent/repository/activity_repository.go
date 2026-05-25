@@ -321,21 +321,6 @@ func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggrega
 			return types.NewAppError(types.ResponseCodeIndexDup, err)
 		}
 
-		result := tx.Model(&po.RaffleActivityOrder{}).
-			Where("user_id = ? and out_business_no = ? and state = ?", aggregate.UserID, aggregate.OutBusinessNo, activity.ActivityOrderWaitPay).
-			Updates(map[string]any{
-				"state":       activity.ActivityOrderCompleted,
-				"update_time": now,
-			})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected != 1 {
-			return types.NewAppError(types.ResponseCodeActivityOrderStateError, nil)
-		}
-		if err := addActivityAccountQuota(tx, aggregate, now); err != nil {
-			return err
-		}
 		return nil
 	})
 }

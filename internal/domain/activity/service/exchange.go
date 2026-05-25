@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/domain/credit"
 	"bm-go/internal/types"
 )
 
@@ -24,18 +26,22 @@ type exchangeStockService interface {
 type ExchangeService struct {
 	repo                 exchangeRepository
 	stockService         exchangeStockService
+	publisher            credit.MessagePublisher
 	now                  func() time.Time
 	orderIDGenerator     func() (string, error)
+	messageIDGenerator   func() (string, error)
 	businessNoGenerator  func() (string, error)
 	creditOrderGenerator func() (string, error)
 }
 
-func NewExchangeService(repo exchangeRepository, stockService exchangeStockService) *ExchangeService {
+func NewExchangeService(repo exchangeRepository, stockService exchangeStockService, publisher credit.MessagePublisher) *ExchangeService {
 	return &ExchangeService{
 		repo:                 repo,
 		stockService:         stockService,
+		publisher:            publisher,
 		now:                  time.Now,
 		orderIDGenerator:     func() (string, error) { return randomNumeric(12) },
+		messageIDGenerator:   func() (string, error) { return randomNumeric(11) },
 		businessNoGenerator:  func() (string, error) { return randomNumeric(12) },
 		creditOrderGenerator: func() (string, error) { return randomNumeric(12) },
 	}
@@ -51,14 +57,14 @@ func (s *ExchangeService) CreditPayExchangeSku(ctx context.Context, userID strin
 		return false, err
 	}
 	if exists {
-		return s.completeCreditPayOrder(ctx, unpaid)
+		return s.payCreditOrder(ctx, unpaid)
 	}
 
 	order, err := s.createCreditPayOrder(ctx, userID, sku)
 	if err != nil {
 		return false, err
 	}
-	return s.completeCreditPayOrder(ctx, order)
+	return s.payCreditOrder(ctx, order)
 }
 
 func (s *ExchangeService) createCreditPayOrder(ctx context.Context, userID string, sku int64) (activity.SkuExchangeOrderEntity, error) {
@@ -129,24 +135,13 @@ func (s *ExchangeService) createCreditPayOrder(ctx context.Context, userID strin
 	}, nil
 }
 
-func (s *ExchangeService) completeCreditPayOrder(ctx context.Context, order activity.SkuExchangeOrderEntity) (bool, error) {
-	product, exists, err := s.repo.QuerySkuProductBySKU(ctx, order.SKU)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return false, types.NewAppError(types.ResponseCodeIllegalParam, nil)
-	}
+func (s *ExchangeService) payCreditOrder(ctx context.Context, order activity.SkuExchangeOrderEntity) (bool, error) {
 	creditOrderID, err := s.creditOrderGenerator()
 	if err != nil {
 		return false, err
 	}
 	err = s.repo.CompleteCreditPayOrder(ctx, activity.CompleteSkuExchangeAggregate{
 		UserID:        order.UserID,
-		ActivityID:    product.ActivityID,
-		TotalCount:    product.ActivityCount.TotalCount,
-		DayCount:      product.ActivityCount.DayCount,
-		MonthCount:    product.ActivityCount.MonthCount,
 		OutBusinessNo: order.OutBusinessNo,
 		CreditOrder: activity.CreditOrderEntity{
 			UserID:        order.UserID,
@@ -158,6 +153,27 @@ func (s *ExchangeService) completeCreditPayOrder(ctx context.Context, order acti
 		},
 	})
 	if err != nil {
+		return false, err
+	}
+
+	messageID, err := s.messageIDGenerator()
+	if err != nil {
+		return false, err
+	}
+	message, err := json.Marshal(credit.EventMessage[credit.AdjustSuccessMessage]{
+		ID:        messageID,
+		Timestamp: s.now().UnixMilli(),
+		Data: credit.AdjustSuccessMessage{
+			UserID:        order.UserID,
+			OrderID:       creditOrderID,
+			Amount:        order.PayAmount,
+			OutBusinessNo: order.OutBusinessNo,
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+	if err := s.publisher.Publish(ctx, credit.TopicCreditAdjustSuccess, string(message)); err != nil {
 		return false, err
 	}
 	return true, nil

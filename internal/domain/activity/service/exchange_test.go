@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,9 +34,11 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 		activityExists: true,
 	}
 	stock := &fakeExchangeStockService{ok: true}
-	service := NewExchangeService(repo, stock)
+	publisher := &fakeExchangePublisher{}
+	service := NewExchangeService(repo, stock, publisher)
 	service.now = func() time.Time { return now }
 	service.orderIDGenerator = func() (string, error) { return "123456789012", nil }
+	service.messageIDGenerator = func() (string, error) { return "22222222222", nil }
 	service.businessNoGenerator = func() (string, error) { return "987654321098", nil }
 	service.creditOrderGenerator = func() (string, error) { return "111111111111", nil }
 
@@ -57,6 +60,12 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 	}
 	if repo.completeAggregate.CreditOrder.TradeAmount != -1.68 {
 		t.Fatalf("expected credit amount -1.68, got %.2f", repo.completeAggregate.CreditOrder.TradeAmount)
+	}
+	if publisher.topic != "credit_adjust_success" {
+		t.Fatalf("expected credit adjust success topic, got %s", publisher.topic)
+	}
+	if !strings.Contains(publisher.message, `"outBusinessNo":"987654321098"`) {
+		t.Fatalf("expected adjust success message, got %s", publisher.message)
 	}
 }
 
@@ -107,4 +116,15 @@ func (f *fakeExchangeStockService) SubtractActivitySkuStock(ctx context.Context,
 	f.sku = sku
 	f.activityID = activityID
 	return f.ok, nil
+}
+
+type fakeExchangePublisher struct {
+	topic   string
+	message string
+}
+
+func (f *fakeExchangePublisher) Publish(ctx context.Context, topic string, message string) error {
+	f.topic = topic
+	f.message = message
+	return nil
 }
