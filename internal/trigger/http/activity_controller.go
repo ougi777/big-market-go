@@ -169,9 +169,8 @@ func (c *raffleActivityController) armory(ctx *gin.Context) {
 	}
 
 	if err := c.armoryService.AssembleActivitySkuByActivityID(ctx.Request.Context(), request.ActivityID); err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, false))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
@@ -179,9 +178,8 @@ func (c *raffleActivityController) armory(ctx *gin.Context) {
 	}
 
 	if err := c.strategyArmoryService.AssembleLotteryStrategyByActivityID(ctx.Request.Context(), request.ActivityID); err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, false))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
@@ -200,9 +198,8 @@ func (c *raffleActivityController) draw(ctx *gin.Context) {
 
 	result, err := c.drawService.Draw(ctx.Request.Context(), request.UserID, request.ActivityID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, activityDrawResponse{}))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, activityDrawResponse{}))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, activityDrawResponse{}))
@@ -225,9 +222,8 @@ func (c *raffleActivityController) queryUserActivityAccount(ctx *gin.Context) {
 
 	account, err := c.accountService.QueryActivityAccount(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, userActivityAccountResponse{}))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, userActivityAccountResponse{}))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, userActivityAccountResponse{}))
@@ -253,9 +249,8 @@ func (c *raffleActivityController) querySkuProductListByActivityID(ctx *gin.Cont
 
 	products, err := c.skuProductService.QuerySkuProductListByActivityID(ctx.Request.Context(), request.ActivityID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, []skuProductResponse{}))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, []skuProductResponse{}))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []skuProductResponse{}))
@@ -291,9 +286,8 @@ func (c *raffleActivityController) creditPayExchangeSku(ctx *gin.Context) {
 
 	result, err := c.exchangeService.CreditPayExchangeSku(ctx.Request.Context(), request.UserID, request.SKU)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, false))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
@@ -310,9 +304,8 @@ func (c *raffleActivityController) queryUserCreditAccount(ctx *gin.Context) {
 	}
 	amount, err := c.creditService.QueryUserCreditAccount(ctx.Request.Context(), request.UserID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, float64(0)))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, float64(0)))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, float64(0)))
@@ -329,9 +322,8 @@ func (c *raffleActivityController) calendarSignRebate(ctx *gin.Context) {
 	}
 	result, err := c.rebateService.CalendarSignRebate(ctx.Request.Context(), userID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, false))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
@@ -348,9 +340,8 @@ func (c *raffleActivityController) isCalendarSignRebate(ctx *gin.Context) {
 	}
 	result, err := c.rebateService.IsCalendarSignRebate(ctx.Request.Context(), userID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, false))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))

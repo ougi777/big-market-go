@@ -107,9 +107,8 @@ func (c *raffleStrategyController) strategyArmory(ctx *gin.Context) {
 	}
 
 	if err := c.armoryService.AssembleLotteryStrategy(ctx.Request.Context(), request.StrategyID); err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, false))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
@@ -128,9 +127,8 @@ func (c *raffleStrategyController) randomRaffle(ctx *gin.Context) {
 
 	result, err := c.raffleService.PerformRaffle(ctx.Request.Context(), "system", request.StrategyID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, raffleStrategyResponse{}))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, raffleStrategyResponse{}))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, raffleStrategyResponse{}))
@@ -152,9 +150,8 @@ func (c *raffleStrategyController) queryRaffleAwardList(ctx *gin.Context) {
 
 	awards, err := c.queryService.QueryRaffleAwardList(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, []raffleAwardListResponse{}))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, []raffleAwardListResponse{}))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []raffleAwardListResponse{}))
@@ -192,9 +189,8 @@ func (c *raffleStrategyController) queryRaffleStrategyRuleWeight(ctx *gin.Contex
 
 	ruleWeights, err := c.queryService.QueryRaffleStrategyRuleWeight(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
-		var appErr types.AppError
-		if errors.As(err, &appErr) {
-			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, []raffleStrategyRuleWeightResponse{}))
+		if code, ok := appErrorCode(err); ok {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(code, []raffleStrategyRuleWeightResponse{}))
 			return
 		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []raffleStrategyRuleWeightResponse{}))
