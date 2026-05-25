@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -107,6 +108,57 @@ func TestAccountServiceQueryActivityAccountEmpty(t *testing.T) {
 	}
 }
 
+func TestAccountServiceQueryActivityAccountIllegalParam(t *testing.T) {
+	service := NewAccountService(&fakeActivityRepository{})
+
+	_, err := service.QueryActivityAccount(context.Background(), 0, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected illegal param error")
+	}
+
+	_, err = service.QueryActivityAccount(context.Background(), 100301, " ")
+	if err == nil {
+		t.Fatal("expected illegal param error")
+	}
+}
+
+func TestAccountServiceQueryActivityAccountRepositoryError(t *testing.T) {
+	service := NewAccountService(&fakeActivityRepository{accountErr: errors.New("query account failed")})
+
+	_, err := service.QueryActivityAccount(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected account query error")
+	}
+}
+
+func TestAccountServiceQueryActivityAccountDayError(t *testing.T) {
+	repo := &fakeActivityRepository{
+		account:       activity.AccountEntity{UserID: "xiaofuge", ActivityID: 100301},
+		accountExists: true,
+		dayErr:        errors.New("query day failed"),
+	}
+	service := NewAccountService(repo)
+
+	_, err := service.QueryActivityAccount(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected day query error")
+	}
+}
+
+func TestAccountServiceQueryActivityAccountMonthError(t *testing.T) {
+	repo := &fakeActivityRepository{
+		account:       activity.AccountEntity{UserID: "xiaofuge", ActivityID: 100301},
+		accountExists: true,
+		monthErr:      errors.New("query month failed"),
+	}
+	service := NewAccountService(repo)
+
+	_, err := service.QueryActivityAccount(context.Background(), 100301, "xiaofuge")
+	if err == nil {
+		t.Fatal("expected month query error")
+	}
+}
+
 type fakeActivityRepository struct {
 	account       activity.AccountEntity
 	accountExists bool
@@ -116,18 +168,21 @@ type fakeActivityRepository struct {
 	monthExists   bool
 	queriedDay    string
 	queriedMonth  string
+	accountErr    error
+	dayErr        error
+	monthErr      error
 }
 
 func (f *fakeActivityRepository) QueryActivityAccount(ctx context.Context, activityID int64, userID string) (activity.AccountEntity, bool, error) {
-	return f.account, f.accountExists, nil
+	return f.account, f.accountExists, f.accountErr
 }
 
 func (f *fakeActivityRepository) QueryActivityAccountDay(ctx context.Context, activityID int64, userID string, day string) (activity.AccountDayEntity, bool, error) {
 	f.queriedDay = day
-	return f.day, f.dayExists, nil
+	return f.day, f.dayExists, f.dayErr
 }
 
 func (f *fakeActivityRepository) QueryActivityAccountMonth(ctx context.Context, activityID int64, userID string, month string) (activity.AccountMonthEntity, bool, error) {
 	f.queriedMonth = month
-	return f.month, f.monthExists, nil
+	return f.month, f.monthExists, f.monthErr
 }

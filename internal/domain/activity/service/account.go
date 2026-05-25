@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"bm-go/internal/domain/activity"
+	"bm-go/internal/types"
 )
 
 type AccountService struct {
@@ -20,6 +22,10 @@ func NewAccountService(repo activity.AccountRepository) *AccountService {
 }
 
 func (s *AccountService) QueryActivityAccount(ctx context.Context, activityID int64, userID string) (activity.AccountEntity, error) {
+	userID = strings.TrimSpace(userID)
+	if activityID <= 0 || userID == "" {
+		return activity.AccountEntity{}, types.NewAppError(types.ResponseCodeIllegalParam, nil)
+	}
 	account, exists, err := s.repo.QueryActivityAccount(ctx, activityID, userID)
 	if err != nil {
 		return activity.AccountEntity{}, err
