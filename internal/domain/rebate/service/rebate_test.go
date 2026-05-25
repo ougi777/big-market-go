@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -85,6 +86,39 @@ func TestIsCalendarSignRebate(t *testing.T) {
 	}
 }
 
+func TestCalendarSignRebateMarksTaskFailOnPublishError(t *testing.T) {
+	repo := &fakeRebateRepository{
+		configs: []rebate.DailyBehaviorRebateEntity{
+			{
+				BehaviorType: rebate.BehaviorTypeSign,
+				RebateDesc:   "签到返利积分",
+				RebateType:   "integral",
+				RebateConfig: "10",
+			},
+		},
+	}
+	publisher := &fakeRebatePublisher{err: errors.New("publish failed")}
+	service := NewRebateService(repo, publisher)
+	service.now = func() time.Time { return time.Date(2026, 5, 25, 9, 30, 0, 0, time.Local) }
+	ids := []string{"123456789012", "12345678901"}
+	service.newID = func(length int) (string, error) {
+		id := ids[0]
+		ids = ids[1:]
+		return id, nil
+	}
+
+	result, err := service.CalendarSignRebate(context.Background(), "xiaofuge")
+	if err != nil {
+		t.Fatalf("calendar sign rebate: %v", err)
+	}
+	if !result {
+		t.Fatal("expected sign rebate success")
+	}
+	if len(repo.failed) != 1 || repo.failed[0] != "12345678901" {
+		t.Fatalf("expected failed task, got %+v", repo.failed)
+	}
+}
+
 type fakeRebateRepository struct {
 	configs            []rebate.DailyBehaviorRebateEntity
 	orders             []rebate.BehaviorRebateOrderEntity
@@ -122,9 +156,13 @@ func (f *fakeRebateRepository) UpdateTaskSendMessageFail(ctx context.Context, us
 
 type fakeRebatePublisher struct {
 	messages []string
+	err      error
 }
 
 func (f *fakeRebatePublisher) Publish(ctx context.Context, topic string, message string) error {
 	f.messages = append(f.messages, message)
+	if f.err != nil {
+		return f.err
+	}
 	return nil
 }
