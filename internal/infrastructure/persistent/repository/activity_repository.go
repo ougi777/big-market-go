@@ -320,18 +320,6 @@ func (r *ActivityRepository) DeliverActivityOrder(ctx context.Context, deliveryO
 	})
 }
 
-func (r *ActivityRepository) UpdateTaskSendMessageCompleted(ctx context.Context, userID string, messageID string) error {
-	return r.updateTaskState(ctx, userID, messageID, "completed")
-}
-
-func (r *ActivityRepository) UpdateTaskSendMessageFail(ctx context.Context, userID string, messageID string) error {
-	return r.updateTaskState(ctx, userID, messageID, "fail")
-}
-
-func (r *ActivityRepository) updateTaskState(ctx context.Context, userID string, messageID string, state string) error {
-	return setTaskState(ctx, r.db.Shard(r.sharder.DBKey(userID)), userID, messageID, state)
-}
-
 func subtractAccountQuota(tx *gorm.DB, userID string, activityID int64) error {
 	result := tx.Model(&po.RaffleActivityAccount{}).
 		Where("user_id = ? and activity_id = ? and total_count_surplus > 0", userID, activityID).
