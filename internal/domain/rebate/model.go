@@ -1,12 +1,14 @@
 package rebate
 
 const (
-	BehaviorTypeSign  = "sign"
-	RebateStateOpen   = "open"
-	TopicSendRebate   = "send_rebate"
-	TaskStateCreate   = "create"
-	TaskStateComplete = "completed"
-	TaskStateFail     = "fail"
+	BehaviorTypeSign   = "sign"
+	RebateStateOpen    = "open"
+	RebateTypeSKU      = "sku"
+	RebateTypeIntegral = "integral"
+	TopicSendRebate    = "send_rebate"
+	TaskStateCreate    = "create"
+	TaskStateComplete  = "completed"
+	TaskStateFail      = "fail"
 )
 
 type DailyBehaviorRebateEntity struct {

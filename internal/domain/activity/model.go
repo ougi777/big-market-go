@@ -6,6 +6,7 @@ const (
 	ActivityStateOpen         = "open"
 	ActivityOrderWaitPay      = "wait_pay"
 	ActivityOrderCompleted    = "completed"
+	ActivityTradeRebateNoPay  = "rebate_no_pay_trade"
 	TopicActivitySkuStockZero = "activity_sku_stock_zero"
 	UserRaffleOrderCreate     = "create"
 	UserRaffleOrderUsed       = "used"
@@ -111,6 +112,26 @@ type CompleteSkuExchangeAggregate struct {
 	MonthCount    int
 	OutBusinessNo string
 	CreditOrder   CreditOrderEntity
+}
+
+type RebateSkuOrderEntity struct {
+	UserID        string
+	SKU           int64
+	OrderID       string
+	OutBusinessNo string
+}
+
+type CreateRebateSkuOrderAggregate struct {
+	UserID        string
+	ActivityID    int64
+	ActivityOrder ActivityOrderEntity
+}
+
+type RebateIntegralEntity struct {
+	UserID        string
+	OrderID       string
+	TradeAmount   float64
+	OutBusinessNo string
 }
 
 type ActivitySkuStockKey struct {

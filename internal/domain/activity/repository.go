@@ -39,6 +39,13 @@ type SkuExchangeRepository interface {
 	CompleteCreditPayOrder(ctx context.Context, aggregate CompleteSkuExchangeAggregate) error
 }
 
+type RebateRepository interface {
+	QuerySkuProductBySKU(ctx context.Context, sku int64) (SkuProductEntity, bool, error)
+	QueryActivityByActivityID(ctx context.Context, activityID int64) (ActivityEntity, bool, error)
+	SaveRebateSkuOrder(ctx context.Context, aggregate CreateRebateSkuOrderAggregate) error
+	SaveRebateIntegralOrder(ctx context.Context, rebateIntegral RebateIntegralEntity) error
+}
+
 type PartakeRepository interface {
 	QueryActivityByActivityID(ctx context.Context, activityID int64) (ActivityEntity, bool, error)
 	QueryNoUsedRaffleOrder(ctx context.Context, userID string, activityID int64) (UserRaffleOrderEntity, bool, error)
@@ -54,4 +61,5 @@ type Repository interface {
 	SkuProductRepository
 	SkuExchangeRepository
 	PartakeRepository
+	RebateRepository
 }

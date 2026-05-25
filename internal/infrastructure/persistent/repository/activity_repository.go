@@ -22,6 +22,7 @@ var _ activity.CreditAccountRepository = (*ActivityRepository)(nil)
 var _ activity.SkuProductRepository = (*ActivityRepository)(nil)
 var _ activity.SkuStockRepository = (*ActivityRepository)(nil)
 var _ activity.PartakeRepository = (*ActivityRepository)(nil)
+var _ activity.RebateRepository = (*ActivityRepository)(nil)
 
 func NewActivityRepository(db *gorm.DB) *ActivityRepository {
 	return &ActivityRepository{db: db}
@@ -338,6 +339,71 @@ func (r *ActivityRepository) CompleteCreditPayOrder(ctx context.Context, aggrega
 	})
 }
 
+func (r *ActivityRepository) SaveRebateSkuOrder(ctx context.Context, aggregate activity.CreateRebateSkuOrderAggregate) error {
+	now := time.Now()
+	order := aggregate.ActivityOrder
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		orderPO := po.RaffleActivityOrder{
+			UserID:        order.UserID,
+			SKU:           order.SKU,
+			ActivityID:    order.ActivityID,
+			ActivityName:  order.ActivityName,
+			StrategyID:    order.StrategyID,
+			OrderID:       order.OrderID,
+			OrderTime:     order.OrderTime,
+			TotalCount:    order.TotalCount,
+			DayCount:      order.DayCount,
+			MonthCount:    order.MonthCount,
+			PayAmount:     order.PayAmount,
+			State:         order.State,
+			OutBusinessNo: order.OutBusinessNo,
+			CreateTime:    now,
+			UpdateTime:    now,
+		}
+		if err := tx.Create(&orderPO).Error; err != nil {
+			return types.NewAppError(types.ResponseCodeIndexDup, err)
+		}
+		return addActivityAccountQuota(tx, activity.CompleteSkuExchangeAggregate{
+			UserID:        aggregate.UserID,
+			ActivityID:    aggregate.ActivityID,
+			TotalCount:    order.TotalCount,
+			DayCount:      order.DayCount,
+			MonthCount:    order.MonthCount,
+			OutBusinessNo: order.OutBusinessNo,
+		}, now)
+	})
+}
+
+func (r *ActivityRepository) SaveRebateIntegralOrder(ctx context.Context, rebateIntegral activity.RebateIntegralEntity) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		creditOrder := activity.CreditOrderEntity{
+			UserID:        rebateIntegral.UserID,
+			OrderID:       rebateIntegral.OrderID,
+			TradeName:     "REBATE",
+			TradeType:     "forward",
+			TradeAmount:   rebateIntegral.TradeAmount,
+			OutBusinessNo: rebateIntegral.OutBusinessNo,
+		}
+		if err := adjustOrCreateUserCreditAccount(tx, creditOrder, now); err != nil {
+			return err
+		}
+		if err := tx.Create(&po.UserCreditOrder{
+			UserID:        creditOrder.UserID,
+			OrderID:       creditOrder.OrderID,
+			TradeName:     creditOrder.TradeName,
+			TradeType:     creditOrder.TradeType,
+			TradeAmount:   creditOrder.TradeAmount,
+			OutBusinessNo: creditOrder.OutBusinessNo,
+			CreateTime:    now,
+			UpdateTime:    now,
+		}).Error; err != nil {
+			return types.NewAppError(types.ResponseCodeIndexDup, err)
+		}
+		return nil
+	})
+}
+
 func (r *ActivityRepository) UpdateActivitySkuStock(ctx context.Context, sku int64) error {
 	return r.db.WithContext(ctx).
 		Model(&po.RaffleActivitySku{}).
@@ -469,6 +535,35 @@ func adjustUserCreditAccount(tx *gorm.DB, creditOrder activity.CreditOrderEntity
 	}
 	if result.RowsAffected != 1 {
 		return types.NewAppError(types.ResponseCodeAccountQuotaError, nil)
+	}
+	return nil
+}
+
+func adjustOrCreateUserCreditAccount(tx *gorm.DB, creditOrder activity.CreditOrderEntity, now time.Time) error {
+	result := tx.Model(&po.UserCreditAccount{}).
+		Where("user_id = ? and available_amount + ? >= 0", creditOrder.UserID, creditOrder.TradeAmount).
+		Updates(map[string]any{
+			"total_amount":     gorm.Expr("total_amount + ?", creditOrder.TradeAmount),
+			"available_amount": gorm.Expr("available_amount + ?", creditOrder.TradeAmount),
+			"update_time":      now,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		if creditOrder.TradeAmount < 0 {
+			return types.NewAppError(types.ResponseCodeAccountQuotaError, nil)
+		}
+		if err := tx.Create(&po.UserCreditAccount{
+			UserID:          creditOrder.UserID,
+			TotalAmount:     creditOrder.TradeAmount,
+			AvailableAmount: creditOrder.TradeAmount,
+			AccountStatus:   "open",
+			CreateTime:      now,
+			UpdateTime:      now,
+		}).Error; err != nil {
+			return types.NewAppError(types.ResponseCodeIndexDup, err)
+		}
 	}
 	return nil
 }
