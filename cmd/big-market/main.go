@@ -17,6 +17,7 @@ import (
 	strategyservice "bm-go/internal/domain/strategy/service"
 	"bm-go/internal/infrastructure/persistent/mysql"
 	"bm-go/internal/infrastructure/persistent/repository"
+	infrabbitmq "bm-go/internal/infrastructure/rabbitmq"
 	infrredis "bm-go/internal/infrastructure/redis"
 	triggerhttp "bm-go/internal/trigger/http"
 	triggerjob "bm-go/internal/trigger/job"
@@ -41,6 +42,11 @@ func main() {
 		logger.Fatal("open mysql failed", zap.Error(err))
 	}
 	redisClient := infrredis.NewClient(cfg.Redis)
+	rabbitmqClient, err := infrabbitmq.Dial(cfg.RabbitMQ)
+	if err != nil {
+		logger.Fatal("open rabbitmq failed", zap.Error(err))
+	}
+	defer func() { _ = rabbitmqClient.Close() }()
 
 	strategyStore := infrredis.NewStrategyStore(redisClient)
 	activityStore := infrredis.NewActivityStore(redisClient)
@@ -62,7 +68,8 @@ func main() {
 	activitySkuProductService := activityservice.NewSkuProductService(activityRepository)
 	activityArmoryService := activityservice.NewArmoryService(activityRepository, activityStore)
 	activityPartakeService := activityservice.NewPartakeService(activityRepository)
-	awardService := awardservice.NewAwardService(awardRepository)
+	awardService := awardservice.NewAwardService(awardRepository, awardRepository, rabbitmqClient)
+	taskService := awardservice.NewTaskService(awardRepository, rabbitmqClient)
 	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
@@ -86,6 +93,10 @@ func main() {
 	updateAwardStockJob := triggerjob.NewUpdateAwardStockJob(stockService, logger)
 	if _, err := scheduler.Add("*/5 * * * * *", updateAwardStockJob.Exec); err != nil {
 		logger.Fatal("register update award stock job failed", zap.Error(err))
+	}
+	sendMessageTaskJob := triggerjob.NewSendMessageTaskJob(taskService, logger)
+	if _, err := scheduler.Add("*/5 * * * * *", sendMessageTaskJob.Exec); err != nil {
+		logger.Fatal("register send message task job failed", zap.Error(err))
 	}
 	scheduler.Start()
 
