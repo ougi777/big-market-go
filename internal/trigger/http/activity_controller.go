@@ -215,6 +215,11 @@ func (c *raffleActivityController) queryUserActivityAccount(ctx *gin.Context) {
 
 	account, err := c.accountService.QueryActivityAccount(ctx.Request.Context(), request.ActivityID, request.UserID)
 	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, userActivityAccountResponse{}))
+			return
+		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, userActivityAccountResponse{}))
 		return
 	}
@@ -238,6 +243,11 @@ func (c *raffleActivityController) querySkuProductListByActivityID(ctx *gin.Cont
 
 	products, err := c.skuProductService.QuerySkuProductListByActivityID(ctx.Request.Context(), request.ActivityID)
 	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, []skuProductResponse{}))
+			return
+		}
 		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, []skuProductResponse{}))
 		return
 	}

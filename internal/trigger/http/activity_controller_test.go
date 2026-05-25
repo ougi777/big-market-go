@@ -41,6 +41,26 @@ func TestQueryUserActivityAccountRoute(t *testing.T) {
 	}
 }
 
+func TestQueryUserActivityAccountRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivityAccountService: &fakeActivityAccountService{
+			err: types.NewAppError(types.ResponseCodeAccountQuotaError, nil),
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/query_user_activity_account", strings.NewReader(`{"userId":"xiaofuge","activityId":100301}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_006"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
+	}
+}
+
 func TestActivityArmoryRoute(t *testing.T) {
 	activityArmory := &fakeActivityArmoryService{}
 	strategyArmory := &fakeActivityStrategyArmoryService{}
@@ -150,6 +170,25 @@ func TestQuerySkuProductListByActivityIDRoute(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `"totalCount":100`) {
 		t.Fatalf("expected total count, got %s", recorder.Body.String())
+	}
+}
+
+func TestQuerySkuProductListByActivityIDRouteReturnsAppErrorCode(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		ActivitySkuProductService: &fakeActivitySkuProductService{
+			err: types.NewAppError(types.ResponseCodeActivityStateError, nil),
+		},
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/raffle/activity/query_sku_product_list_by_activity_id?activityId=100301", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"ERR_BIZ_003"`) {
+		t.Fatalf("expected app error code, got %s", recorder.Body.String())
 	}
 }
 
@@ -277,17 +316,25 @@ func TestIsCalendarSignRebateRoute(t *testing.T) {
 
 type fakeActivityAccountService struct {
 	account activity.AccountEntity
+	err     error
 }
 
 func (f *fakeActivityAccountService) QueryActivityAccount(ctx context.Context, activityID int64, userID string) (activity.AccountEntity, error) {
+	if f.err != nil {
+		return activity.AccountEntity{}, f.err
+	}
 	return f.account, nil
 }
 
 type fakeActivitySkuProductService struct {
 	products []activity.SkuProductEntity
+	err      error
 }
 
 func (f *fakeActivitySkuProductService) QuerySkuProductListByActivityID(ctx context.Context, activityID int64) ([]activity.SkuProductEntity, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	return f.products, nil
 }
 
