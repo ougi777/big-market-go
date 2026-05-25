@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -97,6 +98,9 @@ func (d *StrategyDispatch) getRandomAwardID(ctx context.Context, key string) (in
 
 	rateRangeValue, err := d.store.Get(ctx, types.RedisKeyStrategyRateRange+key)
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return 0, types.NewAppError(types.ResponseCodeUnassembledStrategy, err)
+		}
 		return 0, err
 	}
 	rateRange, err := strconv.Atoi(rateRangeValue)
@@ -114,6 +118,9 @@ func (d *StrategyDispatch) getRandomAwardID(ctx context.Context, key string) (in
 
 	awardIDValue, err := d.store.HGet(ctx, types.RedisKeyStrategyRateTable+key, strconv.Itoa(rateKey))
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return 0, types.NewAppError(types.ResponseCodeUnassembledStrategy, err)
+		}
 		return 0, err
 	}
 	awardID, err := strconv.Atoi(awardIDValue)

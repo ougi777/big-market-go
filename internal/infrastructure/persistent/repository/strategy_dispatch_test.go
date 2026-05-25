@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"bm-go/internal/types"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func TestStrategyDispatchGetRandomAwardID(t *testing.T) {
@@ -65,16 +67,40 @@ func TestStrategyDispatchReturnsUnassembledErrorWhenStoreMissing(t *testing.T) {
 	}
 }
 
+func TestStrategyDispatchReturnsUnassembledErrorWhenRateRangeMissing(t *testing.T) {
+	store := &fakeRateTableStore{
+		getErr: redis.Nil,
+	}
+	dispatch := NewStrategyDispatchWithStore(store)
+
+	_, err := dispatch.GetRandomAwardID(context.Background(), 100001)
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != types.ResponseCodeUnassembledStrategy {
+		t.Fatalf("expected unassembled strategy error, got %s", appErr.Code.Code)
+	}
+}
+
 type fakeRateTableStore struct {
 	values map[string]string
 	hashes map[string]map[string]string
+	getErr error
+	hErr   error
 }
 
 func (f *fakeRateTableStore) Get(ctx context.Context, key string) (string, error) {
+	if f.getErr != nil {
+		return "", f.getErr
+	}
 	return f.values[key], nil
 }
 
 func (f *fakeRateTableStore) HGet(ctx context.Context, key string, field string) (string, error) {
+	if f.hErr != nil {
+		return "", f.hErr
+	}
 	return f.hashes[key][field], nil
 }
 
