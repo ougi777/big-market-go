@@ -12,6 +12,7 @@ import (
 	"bm-go/internal/config"
 	activityservice "bm-go/internal/domain/activity/service"
 	awardservice "bm-go/internal/domain/award/service"
+	rebateservice "bm-go/internal/domain/rebate/service"
 	"bm-go/internal/domain/strategy/rule/chain"
 	"bm-go/internal/domain/strategy/rule/tree"
 	strategyservice "bm-go/internal/domain/strategy/service"
@@ -54,6 +55,7 @@ func main() {
 	strategyRepository := repository.NewStrategyRepository(db, strategyStore)
 	activityRepository := repository.NewActivityRepository(db)
 	awardRepository := repository.NewAwardRepository(db)
+	rebateRepository := repository.NewRebateRepository(db)
 	strategyDispatch := repository.NewStrategyDispatch(redisClient)
 	chainFactory := chain.NewFactory(strategyRepository, strategyDispatch)
 	treeNodes := map[string]tree.Node{
@@ -74,6 +76,7 @@ func main() {
 	activityExchangeService := activityservice.NewExchangeService(activityRepository, activityStockService)
 	awardService := awardservice.NewAwardService(awardRepository, awardRepository, rabbitmqClient)
 	taskService := awardservice.NewTaskService(awardRepository, rabbitmqClient)
+	rebateService := rebateservice.NewRebateService(rebateRepository, rabbitmqClient)
 	activityDrawService := activityservice.NewDrawService(activityPartakeService, raffleService, awardService)
 
 	router := triggerhttp.NewRouter(triggerhttp.RouterOptions{
@@ -88,6 +91,7 @@ func main() {
 		ActivityDrawService:           activityDrawService,
 		ActivityExchangeService:       activityExchangeService,
 		ActivityCreditService:         activityCreditService,
+		ActivityRebateService:         rebateService,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr(),

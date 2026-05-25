@@ -171,6 +171,50 @@ func TestQueryUserCreditAccountRoute(t *testing.T) {
 	}
 }
 
+func TestCalendarSignRebateRoute(t *testing.T) {
+	rebateService := &fakeActivityRebateService{signResult: true}
+	router := NewRouter(RouterOptions{
+		ActivityRebateService: rebateService,
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/calendar_sign_rebate", strings.NewReader("userId=xiaofuge"))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"data":true`) {
+		t.Fatalf("expected sign result, got %s", recorder.Body.String())
+	}
+	if rebateService.signUserID != "xiaofuge" {
+		t.Fatalf("expected sign user, got %s", rebateService.signUserID)
+	}
+}
+
+func TestIsCalendarSignRebateRoute(t *testing.T) {
+	rebateService := &fakeActivityRebateService{queryResult: true}
+	router := NewRouter(RouterOptions{
+		ActivityRebateService: rebateService,
+	})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/raffle/activity/is_calendar_sign_rebate", strings.NewReader("userId=xiaofuge"))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"data":true`) {
+		t.Fatalf("expected signed result, got %s", recorder.Body.String())
+	}
+	if rebateService.queryUserID != "xiaofuge" {
+		t.Fatalf("expected query user, got %s", rebateService.queryUserID)
+	}
+}
+
 type fakeActivityAccountService struct {
 	account activity.AccountEntity
 }
@@ -231,4 +275,21 @@ type fakeActivityCreditService struct {
 
 func (f *fakeActivityCreditService) QueryUserCreditAccount(ctx context.Context, userID string) (float64, error) {
 	return f.amount, nil
+}
+
+type fakeActivityRebateService struct {
+	signUserID  string
+	queryUserID string
+	signResult  bool
+	queryResult bool
+}
+
+func (f *fakeActivityRebateService) CalendarSignRebate(ctx context.Context, userID string) (bool, error) {
+	f.signUserID = userID
+	return f.signResult, nil
+}
+
+func (f *fakeActivityRebateService) IsCalendarSignRebate(ctx context.Context, userID string) (bool, error) {
+	f.queryUserID = userID
+	return f.queryResult, nil
 }

@@ -40,6 +40,11 @@ type activityCreditService interface {
 	QueryUserCreditAccount(ctx context.Context, userID string) (float64, error)
 }
 
+type activityRebateService interface {
+	CalendarSignRebate(ctx context.Context, userID string) (bool, error)
+	IsCalendarSignRebate(ctx context.Context, userID string) (bool, error)
+}
+
 type raffleActivityController struct {
 	accountService        activityAccountService
 	skuProductService     activitySkuProductService
@@ -48,6 +53,7 @@ type raffleActivityController struct {
 	drawService           activityDrawService
 	exchangeService       activityExchangeService
 	creditService         activityCreditService
+	rebateService         activityRebateService
 }
 
 type activityDrawRequest struct {
@@ -117,6 +123,7 @@ func registerRaffleActivityRoutes(router *gin.RouterGroup, opts RouterOptions) {
 		drawService:           opts.ActivityDrawService,
 		exchangeService:       opts.ActivityExchangeService,
 		creditService:         opts.ActivityCreditService,
+		rebateService:         opts.ActivityRebateService,
 	}
 	if controller.accountService == nil {
 		controller.accountService = nilActivityAccountService{}
@@ -139,10 +146,15 @@ func registerRaffleActivityRoutes(router *gin.RouterGroup, opts RouterOptions) {
 	if controller.creditService == nil {
 		controller.creditService = nilActivityCreditService{}
 	}
+	if controller.rebateService == nil {
+		controller.rebateService = nilActivityRebateService{}
+	}
 
 	activityGroup := router.Group("/raffle/activity")
 	activityGroup.GET("/armory", controller.armory)
 	activityGroup.POST("/draw", controller.draw)
+	activityGroup.POST("/calendar_sign_rebate", controller.calendarSignRebate)
+	activityGroup.POST("/is_calendar_sign_rebate", controller.isCalendarSignRebate)
 	activityGroup.GET("/query_sku_product_list_by_activity_id", controller.querySkuProductListByActivityID)
 	activityGroup.GET("/query_user_credit_account", controller.queryUserCreditAccount)
 	activityGroup.POST("/query_user_activity_account", controller.queryUserActivityAccount)
@@ -289,6 +301,44 @@ func (c *raffleActivityController) queryUserCreditAccount(ctx *gin.Context) {
 	ctx.JSON(stdhttp.StatusOK, types.Success(amount))
 }
 
+func (c *raffleActivityController) calendarSignRebate(ctx *gin.Context) {
+	userID := strings.TrimSpace(ctx.PostForm("userId"))
+	if userID == "" {
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeIllegalParam, false))
+		return
+	}
+	result, err := c.rebateService.CalendarSignRebate(ctx.Request.Context(), userID)
+	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+			return
+		}
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
+		return
+	}
+	ctx.JSON(stdhttp.StatusOK, types.Success(result))
+}
+
+func (c *raffleActivityController) isCalendarSignRebate(ctx *gin.Context) {
+	userID := strings.TrimSpace(ctx.PostForm("userId"))
+	if userID == "" {
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeIllegalParam, false))
+		return
+	}
+	result, err := c.rebateService.IsCalendarSignRebate(ctx.Request.Context(), userID)
+	if err != nil {
+		var appErr types.AppError
+		if errors.As(err, &appErr) {
+			ctx.JSON(stdhttp.StatusOK, types.Failure(appErr.Code, false))
+			return
+		}
+		ctx.JSON(stdhttp.StatusOK, types.Failure(types.ResponseCodeUnknownError, false))
+		return
+	}
+	ctx.JSON(stdhttp.StatusOK, types.Success(result))
+}
+
 type nilActivityAccountService struct{}
 
 func (nilActivityAccountService) QueryActivityAccount(ctx context.Context, activityID int64, userID string) (activity.AccountEntity, error) {
@@ -329,4 +379,14 @@ type nilActivityCreditService struct{}
 
 func (nilActivityCreditService) QueryUserCreditAccount(ctx context.Context, userID string) (float64, error) {
 	return 0, errors.New("activity credit service is not configured")
+}
+
+type nilActivityRebateService struct{}
+
+func (nilActivityRebateService) CalendarSignRebate(ctx context.Context, userID string) (bool, error) {
+	return false, errors.New("activity rebate service is not configured")
+}
+
+func (nilActivityRebateService) IsCalendarSignRebate(ctx context.Context, userID string) (bool, error) {
+	return false, errors.New("activity rebate service is not configured")
 }
