@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"bm-go/internal/types"
@@ -48,6 +49,19 @@ func TestStrategyDispatchGetWeightedRandomAwardID(t *testing.T) {
 	}
 	if awardID != 104 {
 		t.Fatalf("expected award 104, got %d", awardID)
+	}
+}
+
+func TestStrategyDispatchReturnsUnassembledErrorWhenStoreMissing(t *testing.T) {
+	dispatch := NewStrategyDispatchWithStore(nil)
+
+	_, err := dispatch.GetRandomAwardID(context.Background(), 100001)
+	var appErr types.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != types.ResponseCodeUnassembledStrategy {
+		t.Fatalf("expected unassembled strategy error, got %s", appErr.Code.Code)
 	}
 }
 

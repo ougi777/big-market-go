@@ -15,8 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var errRepositoryNotImplemented = errors.New("repository method is not implemented")
-
 type StrategyRepository struct {
 	db         dbRouter
 	sharder    sharding.Router

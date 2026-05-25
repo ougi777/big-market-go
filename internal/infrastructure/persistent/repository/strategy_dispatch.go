@@ -71,7 +71,7 @@ func (d *StrategyDispatch) GetRandomAwardID(ctx context.Context, strategyID int6
 
 func (d *StrategyDispatch) SubtractionAwardStock(ctx context.Context, strategyID int64, awardID int) (bool, error) {
 	if d.store == nil {
-		return false, errRepositoryNotImplemented
+		return false, types.NewAppError(types.ResponseCodeUnassembledStrategy, nil)
 	}
 
 	cacheKey := types.RedisKeyStrategyAwardCount + strconv.FormatInt(strategyID, 10) + types.Underline + strconv.Itoa(awardID)
@@ -92,7 +92,7 @@ func (d *StrategyDispatch) SubtractionAwardStock(ctx context.Context, strategyID
 
 func (d *StrategyDispatch) getRandomAwardID(ctx context.Context, key string) (int, error) {
 	if d.store == nil {
-		return 0, errRepositoryNotImplemented
+		return 0, types.NewAppError(types.ResponseCodeUnassembledStrategy, nil)
 	}
 
 	rateRangeValue, err := d.store.Get(ctx, types.RedisKeyStrategyRateRange+key)
