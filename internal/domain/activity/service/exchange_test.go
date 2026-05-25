@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -75,6 +76,35 @@ func TestExchangeServiceCreditPayExchangeSku(t *testing.T) {
 	}
 }
 
+func TestExchangeServiceCreditPayExchangeSkuMarksTaskFailOnPublishError(t *testing.T) {
+	repo := &fakeExchangeRepository{
+		unpaid: activity.SkuExchangeOrderEntity{
+			UserID:        "xiaofuge",
+			SKU:           9011,
+			OrderID:       "123456789012",
+			OutBusinessNo: "987654321098",
+			PayAmount:     1.68,
+		},
+		unpaidExists: true,
+	}
+	stock := &fakeExchangeStockService{ok: true}
+	publisher := &fakeExchangePublisher{err: errors.New("publish failed")}
+	service := NewExchangeService(repo, stock, publisher, repo)
+	service.messageIDGenerator = func() (string, error) { return "22222222222", nil }
+	service.creditOrderGenerator = func() (string, error) { return "111111111111", nil }
+
+	ok, err := service.CreditPayExchangeSku(context.Background(), "xiaofuge", 9011)
+	if err == nil {
+		t.Fatal("expected publish error")
+	}
+	if ok {
+		t.Fatal("expected exchange not ok")
+	}
+	if repo.failMessageID != "22222222222" {
+		t.Fatalf("expected fail task, got %s", repo.failMessageID)
+	}
+}
+
 type fakeExchangeRepository struct {
 	product            activity.SkuProductEntity
 	productExists      bool
@@ -139,10 +169,14 @@ func (f *fakeExchangeStockService) SubtractActivitySkuStock(ctx context.Context,
 type fakeExchangePublisher struct {
 	topic   string
 	message string
+	err     error
 }
 
 func (f *fakeExchangePublisher) Publish(ctx context.Context, topic string, message string) error {
 	f.topic = topic
 	f.message = message
+	if f.err != nil {
+		return f.err
+	}
 	return nil
 }
