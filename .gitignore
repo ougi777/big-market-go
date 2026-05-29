@@ -17,3 +17,6 @@
 # Logs
 /logs/
 *.log
+
+# Local Go build cache
+.gocache/
